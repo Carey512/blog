@@ -1,0 +1,20 @@
+{
+  "name": "blog-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace @blog/web run dev -- --port 5173",
+    "dev:admin": "npm --workspace @blog/admin run dev -- --port 5174",
+    "dev:server": "npm --workspace @blog/server run dev",
+    "build": "npm run build -w @blog/shared && npm run build -w @blog/server && npm run build -w @blog/web && npm run build -w @blog/admin",
+    "build:web": "npm --workspace @blog/web run build",
+    "build:admin": "npm --workspace @blog/admin run build",
+    "build:server": "npm --workspace @blog/server run build",
+    "audit:all": "npm audit --audit-level=moderate"
+  }
+}
