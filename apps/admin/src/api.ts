@@ -1,4 +1,15 @@
-import type { ApiPost, AuthLoginResponse, CreateMusicBody, CreatePostBody, FavoriteMusic } from '@blog/shared';
+import type {
+  ApiEndpointInfo,
+  ApiPost,
+  AuthLoginResponse,
+  CreateMusicBody,
+  CreatePostBody,
+  FavoriteMusic,
+  UpdatePostBody,
+  User,
+  WorkDoc,
+  WorkDocCategory,
+} from '@blog/shared';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
 
@@ -55,11 +66,61 @@ export const adminApi = {
     return request<ApiPost[]>('/api/posts');
   },
 
+  users(token: string, query = '') {
+    const params = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
+    return request<User[]>(`/api/users${params}`, {
+      headers: authorizationHeader(token),
+    });
+  },
+
+  deleteUser(token: string, userId: string) {
+    return request<{ deletedUser: User; ok: boolean }>(`/api/users/${userId}`, {
+      headers: authorizationHeader(token),
+      method: 'DELETE',
+    });
+  },
+
+  endpoints(token: string) {
+    return request<ApiEndpointInfo[]>('/api/meta/endpoints', {
+      headers: authorizationHeader(token),
+    });
+  },
+
+  docs(params?: { category?: WorkDocCategory | 'all'; query?: string }) {
+    const search = new URLSearchParams();
+
+    if (params?.query?.trim()) {
+      search.set('q', params.query.trim());
+    }
+
+    if (params?.category && params.category !== 'all') {
+      search.set('category', params.category);
+    }
+
+    const query = search.toString();
+    return request<WorkDoc[]>(`/api/docs${query ? `?${query}` : ''}`);
+  },
+
   createPost(body: CreatePostBody, token: string) {
     return request<ApiPost>('/api/posts', {
       body: JSON.stringify(body),
       headers: authorizationHeader(token),
       method: 'POST',
+    });
+  },
+
+  updatePost(postId: string, body: UpdatePostBody, token: string) {
+    return request<ApiPost>(`/api/posts/${postId}`, {
+      body: JSON.stringify(body),
+      headers: authorizationHeader(token),
+      method: 'PUT',
+    });
+  },
+
+  deletePost(postId: string, token: string) {
+    return request<{ deletedPost: ApiPost; ok: boolean }>(`/api/posts/${postId}`, {
+      headers: authorizationHeader(token),
+      method: 'DELETE',
     });
   },
 

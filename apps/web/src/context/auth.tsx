@@ -5,6 +5,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  register: (name: string, email: string, password: string) => Promise<void>;
   token: string;
   user: User | null;
 };
@@ -32,8 +33,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthLoginResponse | null>(() => readStoredAuth());
 
   async function login(email: string, password: string) {
-    const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
-      body: JSON.stringify({ email, password }),
+    await authenticate('/api/auth/login', { email, password });
+  }
+
+  async function register(name: string, email: string, password: string) {
+    await authenticate('/api/auth/register', { email, name, password });
+  }
+
+  async function authenticate(path: string, body: Record<string, string>) {
+    const response = await fetch(`${apiBaseUrl}${path}`, {
+      body: JSON.stringify(body),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -59,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(auth?.token),
       login,
       logout,
+      register,
       token: auth?.token ?? '',
       user: auth?.user ?? null,
     }),

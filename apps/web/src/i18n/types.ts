@@ -1,6 +1,6 @@
 import type { Locale, PostCategoryId } from '@blog/shared';
 
-export type RouteLabelKey = 'home' | 'articles' | 'music' | 'submit' | 'about';
+export type RouteLabelKey = 'home' | 'articles' | 'music' | 'docs' | 'submit' | 'about';
 
 export type LocaleOption = {
   id: Locale;
@@ -33,9 +33,15 @@ export type LocaleMessages = {
   loginLoading: string;
   loginTitle: string;
   logoutAction: string;
+  nameLabel: string;
   passwordLabel: string;
   protectedAction: string;
   readMore: string;
+  registerAction: string;
+  registerError: string;
+  registerIntro: string;
+  registerLoading: string;
+  registerTitle: string;
   minRead: string;
   noResults: string;
   loadingPosts: string;
@@ -49,6 +55,15 @@ export type LocaleMessages = {
   loadingMusic: string;
   loadMusicError: string;
   noMusicResults: string;
+  docsBackToList: string;
+  docsCount: string;
+  docsIntro: string;
+  docsLoadError: string;
+  docsLoading: string;
+  docsNoResults: string;
+  docsSearchLabel: string;
+  docsSearchPlaceholder: string;
+  docsTitle: string;
   playMusic: string;
   musicClosePlayer: string;
   musicNowPlaying: string;
@@ -72,6 +87,8 @@ export type LocaleMessages = {
   submitTitle: string;
   submitTitleEn: string;
   submitTitleZh: string;
+  switchToLogin: string;
+  switchToRegister: string;
   newsletterTitle: string;
   newsletterBody: string;
   emailPlaceholder: string;

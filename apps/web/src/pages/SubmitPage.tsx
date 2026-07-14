@@ -66,7 +66,7 @@ export function SubmitPage() {
 
   if (!isAuthenticated) {
     return (
-      <main className="mx-auto grid w-full max-w-4xl flex-1 place-items-center px-4 py-12 sm:px-6 lg:px-8">
+      <main className="mx-auto grid w-full max-w-7xl flex-1 place-items-center px-4 py-12 sm:px-6 lg:px-8">
         <section className="w-full max-w-xl rounded-lg border border-border bg-surface p-6 shadow-soft">
           <span className="grid h-12 w-12 place-items-center rounded-lg bg-accent text-accent-foreground">
             <LockKeyhole className="h-6 w-6" aria-hidden="true" />
@@ -85,7 +85,7 @@ export function SubmitPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
       <section className="border-b border-border pb-8">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">{t.protectedAction}</p>
         <h1 className="mt-4 text-4xl font-semibold leading-tight text-foreground sm:text-5xl">

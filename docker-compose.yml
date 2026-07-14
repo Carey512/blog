@@ -1,0 +1,26 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: deploy/server.Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+    restart: unless-stopped
+    volumes:
+      - server_data:/app/apps/server/data
+      - server_uploads:/app/apps/server/uploads
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  server_data:
+  server_uploads:

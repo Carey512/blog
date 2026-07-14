@@ -1,5 +1,7 @@
 import {
   BookOpenCheck,
+  BookOpenText,
+  Eye,
   Gauge,
   Headphones,
   Link as LinkIcon,
@@ -8,16 +10,23 @@ import {
   Megaphone,
   Music2,
   Newspaper,
+  Plus,
   RadioTower,
   RefreshCw,
+  Save,
+  Search,
   Share2,
   ShieldCheck,
+  Trash2,
   Upload,
   UsersRound,
+  X,
 } from 'lucide-react';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import type {
+  ApiAudience,
+  ApiEndpointInfo,
   ApiPost,
   AuthLoginResponse,
   CreateMusicBody,
@@ -25,28 +34,40 @@ import type {
   FavoriteMusic,
   PostCategoryId,
   PostStatus,
+  UpdatePostBody,
+  User,
+  WorkDoc,
+  WorkDocCategory,
 } from '@blog/shared';
 import { adminApi } from './api';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
 const adminAuthStorageKey = 'blog-admin-auth';
+const routerBasename = resolveRouterBasename(import.meta.env.BASE_URL);
 
 const modules = [
   { label: '总览', path: '/', Icon: Gauge },
   { label: '文章管理', path: '/articles', Icon: Newspaper },
+  { label: '笔记文档', path: '/docs', Icon: BookOpenText },
   { label: '音乐管理', path: '/music', Icon: Headphones },
   { label: '用户管理', path: '/users', Icon: UsersRound },
+  { label: '接口配置详情', path: '/api-config', Icon: LinkIcon },
   { label: '知识源', path: '/knowledge', Icon: RadioTower },
   { label: '分享配置', path: '/sharing', Icon: Share2 },
 ];
 
 function App() {
   return (
-    <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+    <BrowserRouter basename={routerBasename} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <AdminAuthGate />
     </BrowserRouter>
   );
+}
+
+function resolveRouterBasename(baseUrl: string) {
+  const normalized = baseUrl.replace(/\/$/, '');
+  return normalized === '' ? undefined : normalized;
 }
 
 function AdminAuthGate() {
@@ -193,8 +214,13 @@ function AdminLoginPage({
 
 function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: () => void }) {
   const [serverState, setServerState] = useState<LoadState>('idle');
+  const [apiEndpoints, setApiEndpoints] = useState<ApiEndpointInfo[]>([]);
+  const [docs, setDocs] = useState<WorkDoc[]>([]);
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [music, setMusic] = useState<FavoriteMusic[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [deleteUserMessage, setDeleteUserMessage] = useState('');
+  const [userSearch, setUserSearch] = useState('');
 
   const [postTitleZh, setPostTitleZh] = useState('后台发布的新文章');
   const [postTitleEn, setPostTitleEn] = useState('A new post from admin');
@@ -205,6 +231,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
   const [postCategoryId, setPostCategoryId] = useState<PostCategoryId>('notes');
   const [postStatus, setPostStatus] = useState<PostStatus>('published');
   const [createPostMessage, setCreatePostMessage] = useState('');
+  const [postActionMessage, setPostActionMessage] = useState('');
 
   const [musicTitle, setMusicTitle] = useState('My favorite track');
   const [musicArtist, setMusicArtist] = useState('Unknown Artist');
@@ -217,13 +244,19 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
   async function loadOverview() {
     try {
       setServerState('loading');
-      const [health, postList, musicList] = await Promise.all([
+      const [health, postList, musicList, userList, endpointList, docList] = await Promise.all([
         adminApi.health(),
         adminApi.posts(),
         adminApi.favoriteMusic(),
+        adminApi.users(auth.token),
+        adminApi.endpoints(auth.token),
+        adminApi.docs(),
       ]);
       setPosts(postList);
       setMusic(musicList);
+      setUsers(userList);
+      setApiEndpoints(endpointList);
+      setDocs(docList);
       setServerState(health.ok ? 'ready' : 'error');
     } catch {
       setServerState('error');
@@ -239,9 +272,43 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
     [posts],
   );
 
+  async function handleUserSearch(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    try {
+      const userList = await adminApi.users(auth.token, userSearch);
+      setUsers(userList);
+    } catch {
+      setUsers([]);
+    }
+  }
+
+  async function handleDeleteUser(user: User) {
+    setDeleteUserMessage('');
+
+    if (user.id === auth.user.id) {
+      setDeleteUserMessage('不能删除当前登录账号。');
+      return;
+    }
+
+    if (!window.confirm(`确认删除用户 ${user.name} (${user.email}) 吗？`)) {
+      return;
+    }
+
+    try {
+      await adminApi.deleteUser(auth.token, user.id);
+      const userList = await adminApi.users(auth.token, userSearch);
+      setUsers(userList);
+      setDeleteUserMessage(`已删除用户：${user.name}`);
+    } catch {
+      setDeleteUserMessage('删除失败，请确认账号权限和后端服务状态。');
+    }
+  }
+
   async function handleCreatePost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setCreatePostMessage('');
+    setPostActionMessage('');
 
     const body: CreatePostBody = {
       categoryId: postCategoryId,
@@ -269,6 +336,33 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
       await loadOverview();
     } catch {
       setCreatePostMessage('创建失败，请确认登录状态和后端服务。');
+    }
+  }
+
+  async function handleUpdatePost(postId: string, body: UpdatePostBody) {
+    setPostActionMessage('');
+
+    try {
+      const updated = await adminApi.updatePost(postId, body, auth.token);
+      setPosts((currentPosts) => currentPosts.map((post) => (post.id === updated.id ? updated : post)));
+      setPostActionMessage(`已更新文章：${updated.content['zh-CN'].title}`);
+      return updated;
+    } catch {
+      setPostActionMessage('更新失败，请确认管理员权限和后端服务状态。');
+      throw new Error('Update post failed');
+    }
+  }
+
+  async function handleDeletePost(post: ApiPost) {
+    setPostActionMessage('');
+
+    try {
+      await adminApi.deletePost(post.id, auth.token);
+      setPosts((currentPosts) => currentPosts.filter((item) => item.id !== post.id));
+      setPostActionMessage(`已删除文章：${post.content['zh-CN'].title}`);
+    } catch {
+      setPostActionMessage('删除失败，请确认管理员权限和后端服务状态。');
+      throw new Error('Delete post failed');
     }
   }
 
@@ -387,8 +481,11 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
             <Route
               element={
                 <ArticlesAdminPage
+                  actionMessage={postActionMessage}
                   createMessage={createPostMessage}
                   onCreatePost={handleCreatePost}
+                  onDeletePost={handleDeletePost}
+                  onUpdatePost={handleUpdatePost}
                   postCategoryId={postCategoryId}
                   postExcerptEn={postExcerptEn}
                   postExcerptZh={postExcerptZh}
@@ -406,6 +503,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
               }
               path="/articles"
             />
+            <Route element={<DocsAdminPage docs={docs} />} path="/docs" />
             <Route
               element={
                 <MusicAdminPage
@@ -428,7 +526,21 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
               }
               path="/music"
             />
-            <Route element={<PlaceholderPage title="用户管理" body="后续接入用户角色、禁用、密码重置和作者权限。" />} path="/users" />
+            <Route
+              element={
+                <UsersAdminPage
+                  currentUserId={auth.user.id}
+                  deleteMessage={deleteUserMessage}
+                  onDeleteUser={handleDeleteUser}
+                  onSearch={handleUserSearch}
+                  search={userSearch}
+                  setSearch={setUserSearch}
+                  users={users}
+                />
+              }
+              path="/users"
+            />
+            <Route element={<ApiConfigPage endpoints={apiEndpoints} />} path="/api-config" />
             <Route element={<PlaceholderPage title="知识源" body="后续接入 RSS、GitHub、技术资讯源和定时抓取。" />} path="/knowledge" />
             <Route element={<PlaceholderPage title="分享配置" body="后续接入分享卡片、公开分享页和朋友圈素材配置。" />} path="/sharing" />
           </Routes>
@@ -468,8 +580,11 @@ function DashboardPage({
 }
 
 function ArticlesAdminPage({
+  actionMessage,
   createMessage,
   onCreatePost,
+  onDeletePost,
+  onUpdatePost,
   postCategoryId,
   postExcerptEn,
   postExcerptZh,
@@ -484,8 +599,11 @@ function ArticlesAdminPage({
   setPostTitleEn,
   setPostTitleZh,
 }: {
+  actionMessage: string;
   createMessage: string;
   onCreatePost: (event: FormEvent<HTMLFormElement>) => void;
+  onDeletePost: (post: ApiPost) => Promise<void>;
+  onUpdatePost: (postId: string, body: UpdatePostBody) => Promise<ApiPost>;
   postCategoryId: PostCategoryId;
   postExcerptEn: string;
   postExcerptZh: string;
@@ -500,30 +618,137 @@ function ArticlesAdminPage({
   setPostTitleEn: (value: string) => void;
   setPostTitleZh: (value: string) => void;
 }) {
+  const [categoryFilter, setCategoryFilter] = useState<PostCategoryId | 'all'>('all');
+  const [query, setQuery] = useState('');
+  const [selectedPost, setSelectedPost] = useState<ApiPost | null>(null);
+  const [showCreatePostForm, setShowCreatePostForm] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'open-source' | 'personal'>('all');
+  const [statusFilter, setStatusFilter] = useState<PostStatus | 'all'>('all');
+  const openSourceCount = useMemo(() => posts.filter(isOpenSourcePost).length, [posts]);
+  const personalUploadCount = posts.length - openSourceCount;
+  const filteredPosts = useMemo(
+    () =>
+      posts.filter((post) => {
+        const translated = post.content['zh-CN'];
+        const normalizedQuery = query.trim().toLowerCase();
+        const matchesQuery = normalizedQuery
+          ? [post.id, translated.title, translated.excerpt, translated.author, post.content['en-US'].title]
+              .some((value) => value.toLowerCase().includes(normalizedQuery))
+          : true;
+        const matchesStatus = statusFilter === 'all' || post.status === statusFilter;
+        const matchesCategory = categoryFilter === 'all' || post.categoryId === categoryFilter;
+        const matchesSource =
+          sourceFilter === 'all' ||
+          (sourceFilter === 'open-source' ? isOpenSourcePost(post) : !isOpenSourcePost(post));
+
+        return matchesQuery && matchesStatus && matchesCategory && matchesSource;
+      }),
+    [categoryFilter, posts, query, sourceFilter, statusFilter],
+  );
+
   return (
-    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <section className="space-y-4">
+      <div className={showCreatePostForm ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]' : 'grid gap-4'}>
       <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
-        <h2 className="text-lg font-semibold">文章列表</h2>
-        <div className="mt-5 overflow-hidden rounded-lg border border-line">
-          {posts.map((post) => (
-            <div
-              className="grid gap-3 border-b border-line px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_120px_100px]"
-              key={post.id}
-            >
-              <div>
-                <p className="font-medium">{post.content['zh-CN'].title}</p>
-                <p className="mt-1 truncate text-sm text-slate-500">{post.content['zh-CN'].excerpt}</p>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">文章管理</h2>
+            <p className="mt-1 text-sm text-slate-500">筛选、查看详情、编辑和删除文章。</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[28rem]">
+            <ApiSummaryItem label="文章总数" value={posts.length} />
+            <ApiSummaryItem label="开源数" value={openSourceCount} />
+            <ApiSummaryItem label="个人上传数" value={personalUploadCount} />
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px_140px_140px_112px]">
+          <label className="relative min-w-0">
+            <span className="sr-only">搜索文章</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索标题、摘要、作者或 ID"
+              value={query}
+            />
+          </label>
+          <select
+            className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            onChange={(event) => setStatusFilter(event.target.value as PostStatus | 'all')}
+            value={statusFilter}
+          >
+            <option value="all">全部状态</option>
+            <option value="published">已发布</option>
+            <option value="review">审核中</option>
+            <option value="draft">草稿</option>
+          </select>
+          <select
+            className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            onChange={(event) => setCategoryFilter(event.target.value as PostCategoryId | 'all')}
+            value={categoryFilter}
+          >
+            <option value="all">全部分类</option>
+            <option value="notes">随笔</option>
+            <option value="design">设计</option>
+            <option value="engineering">工程</option>
+            <option value="culture">文化</option>
+          </select>
+          <select
+            className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            onChange={(event) => setSourceFilter(event.target.value as 'all' | 'open-source' | 'personal')}
+            value={sourceFilter}
+          >
+            <option value="all">全部来源</option>
+            <option value="open-source">开源</option>
+            <option value="personal">个人上传</option>
+          </select>
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
+            onClick={() => setShowCreatePostForm((current) => !current)}
+            type="button"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {showCreatePostForm ? '收起' : '新增'}
+          </button>
+        </div>
+
+        {actionMessage ? <p className="mt-3 text-sm font-medium text-brand">{actionMessage}</p> : null}
+
+        <div className="mt-4 overflow-hidden rounded-lg border border-line">
+          {filteredPosts.length ? (
+            filteredPosts.map((post) => (
+              <div
+                className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_92px_92px_96px_88px] lg:items-center"
+                key={post.id}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{post.content['zh-CN'].title}</p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{post.content['zh-CN'].excerpt}</p>
+                </div>
+                <span className="text-xs text-slate-500">{post.publishedAt}</span>
+                <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                  {getPostStatusLabel(post.status)}
+                </span>
+                <span className="text-xs text-slate-500">{getPostSourceLabel(post)}</span>
+                <button
+                  className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 text-xs font-semibold text-brand transition hover:bg-slate-50"
+                  onClick={() => setSelectedPost(post)}
+                  type="button"
+                >
+                  <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                  详情
+                </button>
               </div>
-              <span className="text-sm text-slate-500">{post.publishedAt}</span>
-              <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
-                {post.status}
-              </span>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="px-4 py-8 text-center text-sm text-slate-500">暂无匹配文章</div>
+          )}
         </div>
       </section>
 
-      <form className="rounded-lg border border-line bg-panel p-5 shadow-panel" onSubmit={onCreatePost}>
+      {showCreatePostForm ? (
+      <form className="animate-panel-in rounded-lg border border-line bg-panel p-5 shadow-panel xl:sticky xl:top-4 xl:self-start" onSubmit={onCreatePost}>
         <h2 className="font-semibold">新建文章</h2>
         <p className="mt-1 text-xs text-slate-500">发布状态的文章会进入 web /articles。</p>
         <TextField label="中文标题" onChange={setPostTitleZh} value={postTitleZh} />
@@ -562,6 +787,525 @@ function ArticlesAdminPage({
           保存文章
         </button>
       </form>
+      ) : null}
+      </div>
+
+      {selectedPost ? (
+        <ArticleDetailModal
+          onClose={() => setSelectedPost(null)}
+          onDelete={async (post) => {
+            await onDeletePost(post);
+            setSelectedPost(null);
+          }}
+          onUpdate={async (postId, body) => {
+            const updated = await onUpdatePost(postId, body);
+            setSelectedPost(updated);
+            return updated;
+          }}
+          post={selectedPost}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function ArticleDetailModal({
+  onClose,
+  onDelete,
+  onUpdate,
+  post,
+}: {
+  onClose: () => void;
+  onDelete: (post: ApiPost) => Promise<void>;
+  onUpdate: (postId: string, body: UpdatePostBody) => Promise<ApiPost>;
+  post: ApiPost;
+}) {
+  const [categoryId, setCategoryId] = useState<PostCategoryId>(post.categoryId);
+  const [cover, setCover] = useState(post.cover);
+  const [deletePending, setDeletePending] = useState(false);
+  const [excerptEn, setExcerptEn] = useState(post.content['en-US'].excerpt);
+  const [excerptZh, setExcerptZh] = useState(post.content['zh-CN'].excerpt);
+  const [message, setMessage] = useState('');
+  const [readingMinutes, setReadingMinutes] = useState(String(post.readingMinutes));
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<PostStatus>(post.status);
+  const [titleEn, setTitleEn] = useState(post.content['en-US'].title);
+  const [titleZh, setTitleZh] = useState(post.content['zh-CN'].title);
+  const [bodyEn, setBodyEn] = useState(post.content['en-US'].body.join('\n'));
+  const [bodyZh, setBodyZh] = useState(post.content['zh-CN'].body.join('\n'));
+
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage('');
+    setSaving(true);
+
+    const body: UpdatePostBody = {
+      categoryId,
+      content: {
+        'en-US': {
+          author: post.content['en-US'].author,
+          body: splitBodyLines(bodyEn),
+          excerpt: excerptEn,
+          title: titleEn,
+        },
+        'zh-CN': {
+          author: post.content['zh-CN'].author,
+          body: splitBodyLines(bodyZh),
+          excerpt: excerptZh,
+          title: titleZh,
+        },
+      },
+      cover,
+      featured: post.featured,
+      readingMinutes: Number(readingMinutes) || post.readingMinutes,
+      status,
+    };
+
+    try {
+      await onUpdate(post.id, body);
+      setMessage('文章详情已保存。');
+    } catch {
+      setMessage('保存失败，请稍后再试。');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setMessage('');
+
+    if (!window.confirm(`确认删除文章《${post.content['zh-CN'].title}》吗？`)) {
+      return;
+    }
+
+    setDeletePending(true);
+
+    try {
+      await onDelete(post);
+    } catch {
+      setMessage('删除失败，请稍后再试。');
+      setDeletePending(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 px-4 py-6">
+      <form
+        className="max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-line bg-panel shadow-panel"
+        onSubmit={handleSave}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">文章详情</p>
+            <h2 className="truncate text-lg font-semibold">{post.content['zh-CN'].title}</h2>
+          </div>
+          <button
+            className="grid h-9 w-9 place-items-center rounded-lg border border-line text-slate-500 transition hover:bg-slate-50"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">关闭</span>
+          </button>
+        </div>
+
+        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <section className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <CompactTextField label="中文标题" onChange={setTitleZh} value={titleZh} />
+              <CompactTextField label="英文标题" onChange={setTitleEn} value={titleEn} />
+            </div>
+            <CompactTextArea label="中文摘要" onChange={setExcerptZh} rows={3} value={excerptZh} />
+            <CompactTextArea label="英文摘要" onChange={setExcerptEn} rows={3} value={excerptEn} />
+            <CompactTextArea label="中文正文" onChange={setBodyZh} rows={6} value={bodyZh} />
+            <CompactTextArea label="英文正文" onChange={setBodyEn} rows={6} value={bodyEn} />
+          </section>
+
+          <aside className="space-y-3">
+            <div className="rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-500">
+              <p>ID：{post.id}</p>
+              <p>作者：{post.content['zh-CN'].author}</p>
+              <p>来源：{getPostSourceLabel(post)}</p>
+              <p>发布日期：{post.publishedAt}</p>
+            </div>
+            <CompactTextField label="封面 URL" onChange={setCover} value={cover} />
+            <CompactTextField label="阅读分钟" onChange={setReadingMinutes} type="number" value={readingMinutes} />
+            <label className="block text-sm font-medium">
+              分类
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={(event) => setCategoryId(event.target.value as PostCategoryId)}
+                value={categoryId}
+              >
+                <option value="notes">随笔</option>
+                <option value="design">设计</option>
+                <option value="engineering">工程</option>
+                <option value="culture">文化</option>
+              </select>
+            </label>
+            <label className="block text-sm font-medium">
+              状态
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={(event) => setStatus(event.target.value as PostStatus)}
+                value={status}
+              >
+                <option value="published">已发布</option>
+                <option value="review">审核中</option>
+                <option value="draft">草稿</option>
+              </select>
+            </label>
+            {message ? <p className="text-sm font-medium text-brand">{message}</p> : null}
+          </aside>
+        </div>
+
+        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-between">
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-coral/30 px-4 text-sm font-semibold text-coral transition hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={deletePending || saving}
+            onClick={handleDelete}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {deletePending ? '删除中...' : '删除文章'}
+          </button>
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={saving || deletePending}
+            type="submit"
+          >
+            <Save className="h-4 w-4" aria-hidden="true" />
+            {saving ? '保存中...' : '保存修改'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function CompactTextField({
+  label,
+  onChange,
+  type = 'text',
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: string;
+}) {
+  return (
+    <label className="block text-sm font-medium">
+      {label}
+      <input
+        className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        onChange={(event) => onChange(event.target.value)}
+        type={type}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function CompactTextArea({
+  label,
+  onChange,
+  rows,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  rows: number;
+  value: string;
+}) {
+  return (
+    <label className="block text-sm font-medium">
+      {label}
+      <textarea
+        className="mt-1 w-full resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        onChange={(event) => onChange(event.target.value)}
+        rows={rows}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function splitBodyLines(value: string) {
+  const lines = value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.length ? lines : [''];
+}
+
+function isOpenSourcePost(post: ApiPost) {
+  return post.authorId === 'u_system' || post.authorId.startsWith('open-source');
+}
+
+function getPostSourceLabel(post: ApiPost) {
+  return isOpenSourcePost(post) ? '开源' : '个人上传';
+}
+
+function getPostStatusLabel(status: PostStatus) {
+  return {
+    draft: '草稿',
+    published: '已发布',
+    review: '审核中',
+  }[status];
+}
+
+const adminDocCategories: Array<WorkDocCategory | 'all'> = ['all', 'deployment', 'shortcut', 'workflow', 'reference'];
+
+function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
+  const [category, setCategory] = useState<WorkDocCategory | 'all'>('all');
+  const [query, setQuery] = useState('');
+  const [selectedDocId, setSelectedDocId] = useState('');
+  const filteredDocs = useMemo(
+    () =>
+      docs.filter((doc) => {
+        const normalizedQuery = query.trim().toLowerCase();
+        const text = [
+          doc.id,
+          doc.category,
+          ...doc.tags,
+          doc.content['zh-CN'].title,
+          doc.content['zh-CN'].summary,
+          doc.content['en-US'].title,
+        ].join(' ').toLowerCase();
+        const matchesQuery = normalizedQuery ? text.includes(normalizedQuery) : true;
+        const matchesCategory = category === 'all' || doc.category === category;
+
+        return matchesQuery && matchesCategory;
+      }),
+    [category, docs, query],
+  );
+  const selectedDoc = filteredDocs.find((doc) => doc.id === selectedDocId) ?? filteredDocs[0] ?? null;
+
+  return (
+    <section className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <ApiSummaryItem label="文档总数" value={docs.length} />
+        <ApiSummaryItem label="当前筛选" value={filteredDocs.length} />
+        <ApiSummaryItem label="分类数" value={new Set(docs.map((doc) => doc.category)).size} />
+      </div>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="rounded-lg border border-line bg-panel p-4 shadow-panel">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">笔记文档</h2>
+              <p className="mt-1 text-sm text-slate-500">浏览部署流程、快捷操作和工作参考。</p>
+            </div>
+            <div className="grid gap-2 lg:grid-cols-[220px_140px]">
+              <label className="relative min-w-0">
+                <span className="sr-only">搜索文档</span>
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="搜索文档"
+                  value={query}
+                />
+              </label>
+              <select
+                className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={(event) => setCategory(event.target.value as WorkDocCategory | 'all')}
+                value={category}
+              >
+                {adminDocCategories.map((item) => (
+                  <option key={item} value={item}>
+                    {getAdminDocCategoryLabel(item)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-line">
+            {filteredDocs.length ? (
+              filteredDocs.map((doc) => (
+                <button
+                  className={`grid w-full gap-1 border-b border-line px-3 py-2 text-left last:border-b-0 transition hover:bg-slate-50 ${
+                    selectedDoc?.id === doc.id ? 'bg-slate-50' : ''
+                  }`}
+                  key={doc.id}
+                  onClick={() => setSelectedDocId(doc.id)}
+                  type="button"
+                >
+                  <span className="truncate text-sm font-semibold">{doc.content['zh-CN'].title}</span>
+                  <span className="truncate text-xs text-slate-500">{doc.content['zh-CN'].summary}</span>
+                  <span className="text-xs text-slate-400">
+                    {getAdminDocCategoryLabel(doc.category)} · {doc.updatedAt}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-sm text-slate-500">暂无匹配文档</div>
+            )}
+          </div>
+        </div>
+
+        <aside className="rounded-lg border border-line bg-panel p-4 shadow-panel xl:sticky xl:top-4 xl:self-start">
+          {selectedDoc ? (
+            <>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span className="rounded-md bg-slate-100 px-2 py-1 font-semibold">
+                  {getAdminDocCategoryLabel(selectedDoc.category)}
+                </span>
+                <span>{selectedDoc.updatedAt}</span>
+              </div>
+              <h3 className="mt-3 text-xl font-semibold">{selectedDoc.content['zh-CN'].title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500">{selectedDoc.content['zh-CN'].summary}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {selectedDoc.tags.map((tag) => (
+                  <span className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-500" key={tag}>
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-5 space-y-3 border-t border-line pt-4 text-sm leading-7 text-slate-700">
+                {selectedDoc.content['zh-CN'].body.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+                {selectedDoc.content['zh-CN'].sections?.length ? (
+                  <div className="grid gap-2 pt-1">
+                    {selectedDoc.content['zh-CN'].sections.map((section, index) => (
+                      <section className="rounded-lg border border-line bg-slate-50 p-3" key={section.title}>
+                        <div className="flex items-center gap-2">
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-brand text-xs font-bold text-white">
+                            {index + 1}
+                          </span>
+                          <h4 className="text-sm font-semibold text-slate-900">{section.title}</h4>
+                        </div>
+                        <ul className="mt-2 space-y-1.5 text-xs leading-5 text-slate-600">
+                          {section.items.map((item) => (
+                            <li className="flex gap-2" key={item}>
+                              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <div className="py-10 text-center text-sm text-slate-500">请选择文档</div>
+          )}
+        </aside>
+      </section>
+    </section>
+  );
+}
+
+function getAdminDocCategoryLabel(category: WorkDocCategory | 'all') {
+  return {
+    all: '全部分类',
+    deployment: '部署',
+    shortcut: '快捷操作',
+    workflow: '工作流',
+    reference: '参考',
+  }[category];
+}
+
+function UsersAdminPage({
+  currentUserId,
+  deleteMessage,
+  onDeleteUser,
+  onSearch,
+  search,
+  setSearch,
+  users,
+}: {
+  currentUserId: string;
+  deleteMessage: string;
+  onDeleteUser: (user: User) => void;
+  onSearch: (event?: FormEvent<HTMLFormElement>) => void;
+  search: string;
+  setSearch: (value: string) => void;
+  users: User[];
+}) {
+  return (
+    <section className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <MetricCard color="brand" icon={<UsersRound />} label="用户总数" value={users.length} />
+        <MetricCard
+          color="mint"
+          icon={<ShieldCheck />}
+          label="管理员"
+          value={users.filter((user) => user.role === 'admin').length}
+        />
+        <MetricCard
+          color="amber"
+          icon={<BookOpenCheck />}
+          label="作者"
+          value={users.filter((user) => user.role === 'author').length}
+        />
+      </div>
+
+      <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">用户管理</h2>
+            <p className="mt-1 text-sm text-slate-500">查看所有注册用户，并按昵称、邮箱或角色搜索。</p>
+          </div>
+          <form className="flex w-full gap-2 lg:max-w-md" onSubmit={onSearch}>
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">搜索用户</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                className="h-11 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索昵称、邮箱或角色"
+                value={search}
+              />
+            </label>
+            <button className="h-11 rounded-lg bg-brand px-4 text-sm font-semibold text-white" type="submit">
+              搜索
+            </button>
+          </form>
+        </div>
+
+        {deleteMessage ? <p className="mt-4 text-sm font-medium text-brand">{deleteMessage}</p> : null}
+
+        <div className="mt-5 overflow-hidden rounded-lg border border-line">
+          {users.length ? (
+            users.map((user) => (
+              <div
+                className="grid gap-3 border-b border-line px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_110px_150px]"
+                key={user.id}
+              >
+                <div>
+                  <p className="font-medium">{user.name}</p>
+                  <p className="mt-1 text-xs text-slate-500">{user.id}</p>
+                </div>
+                <p className="text-sm text-slate-600">{user.email}</p>
+                <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                  {user.role}
+                </span>
+                {user.id === currentUserId ? (
+                  <span className="text-xs font-medium text-slate-400">当前账号</span>
+                ) : (
+                  <button
+                    className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-lg border border-coral/30 px-3 text-xs font-semibold text-coral transition hover:bg-coral/10"
+                    onClick={() => onDeleteUser(user)}
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    删除
+                  </button>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-10 text-center text-sm text-slate-500">暂无匹配用户</div>
+          )}
+        </div>
+      </section>
     </section>
   );
 }
@@ -657,6 +1401,145 @@ function MusicAdminPage({
       </form>
     </section>
   );
+}
+
+const apiAudienceSections: Array<{ audience: ApiAudience; body: string; title: string }> = [
+  {
+    audience: 'web',
+    body: '前台页面、注册登录、文章、音乐播放与投稿会使用这些接口。',
+    title: 'Web 端接口',
+  },
+  {
+    audience: 'admin',
+    body: '管理后台登录后使用这些接口，包含内容、用户、音乐和接口配置。',
+    title: 'Admin 端接口',
+  },
+];
+
+function ApiConfigPage({ endpoints }: { endpoints: ApiEndpointInfo[] }) {
+  const webCount = useMemo(
+    () => endpoints.filter((endpoint) => endpoint.audiences.includes('web')).length,
+    [endpoints],
+  );
+  const adminCount = useMemo(
+    () => endpoints.filter((endpoint) => endpoint.audiences.includes('admin')).length,
+    [endpoints],
+  );
+  const sharedCount = useMemo(
+    () => endpoints.filter((endpoint) => endpoint.audiences.length > 1).length,
+    [endpoints],
+  );
+  const endpointReferenceCount = webCount + adminCount;
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-lg border border-line bg-panel p-4 shadow-panel">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">接口配置详情</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              唯一接口按真实路径去重；Web/Admin 数量是端侧引用数，共用接口会在两边各出现一次。
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-4 lg:min-w-[34rem]">
+            <ApiSummaryItem label="唯一接口" value={endpoints.length} />
+            <ApiSummaryItem label="端侧引用" value={endpointReferenceCount} />
+            <ApiSummaryItem label="Web" value={webCount} />
+            <ApiSummaryItem label="Admin" value={adminCount} />
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          当前有 {sharedCount} 个共用接口，所以 Web {webCount} + Admin {adminCount} = {endpointReferenceCount}，唯一接口数为 {endpoints.length}。
+        </p>
+      </div>
+
+      {apiAudienceSections.map((section) => (
+        <ApiEndpointSection
+          endpoints={endpoints.filter((endpoint) => endpoint.audiences.includes(section.audience))}
+          key={section.audience}
+          {...section}
+        />
+      ))}
+    </section>
+  );
+}
+
+function ApiSummaryItem({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg bg-slate-50 px-3 py-2">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-0.5 text-xl font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function ApiEndpointSection({
+  audience,
+  body,
+  endpoints,
+  title,
+}: {
+  audience: ApiAudience;
+  body: string;
+  endpoints: ApiEndpointInfo[];
+  title: string;
+}) {
+  return (
+    <section className="rounded-lg border border-line bg-panel p-4 shadow-panel">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">{audience}</p>
+          <h2 className="mt-1 text-lg font-semibold">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{body}</p>
+        </div>
+        <span className="w-fit rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600">
+          {endpoints.length} 个接口
+        </span>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-lg border border-line">
+        {endpoints.map((endpoint) => (
+          <article
+            className="grid gap-2 border-b border-line px-3 py-2.5 last:border-b-0 xl:grid-cols-[88px_minmax(0,1.15fr)_120px_120px_minmax(0,1.4fr)] xl:items-center"
+            key={`${audience}-${endpoint.id}`}
+          >
+            <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${getMethodClass(endpoint.method)}`}>
+              {endpoint.method}
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink">{endpoint.title}</p>
+              <p className="mt-1 break-all font-mono text-xs text-slate-500">{endpoint.path}</p>
+            </div>
+            <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+              {endpoint.module}
+            </span>
+            <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+              {getAuthLabel(endpoint.auth)}
+            </span>
+            <p className="text-sm leading-6 text-slate-500">{endpoint.description}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function getAuthLabel(auth: ApiEndpointInfo['auth']) {
+  return {
+    admin: 'admin token',
+    public: 'public',
+    user: 'user token',
+  }[auth];
+}
+
+function getMethodClass(method: ApiEndpointInfo['method']) {
+  return {
+    DELETE: 'bg-coral/10 text-coral',
+    GET: 'bg-mint/10 text-mint',
+    PATCH: 'bg-amber/10 text-amber',
+    POST: 'bg-brand/10 text-brand',
+    PUT: 'bg-amber/10 text-amber',
+  }[method];
 }
 
 function PlaceholderPage({ body, title }: { body: string; title: string }) {

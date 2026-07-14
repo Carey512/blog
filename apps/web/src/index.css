@@ -118,6 +118,28 @@
 @layer base {
   * {
     box-sizing: border-box;
+    scrollbar-color: hsl(var(--color-primary) / 0.72) transparent;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    min-width: 100px;
+    min-height: 100px;
+    border-radius: 999px;
+    background: hsl(var(--color-primary) / 0.72);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--color-primary) / 0.92);
   }
 
   html {

@@ -6,6 +6,8 @@ export type PostCategoryId = 'design' | 'engineering' | 'culture' | 'notes';
 
 export type PostStatus = 'draft' | 'published' | 'review';
 
+export type WorkDocCategory = 'deployment' | 'shortcut' | 'workflow' | 'reference';
+
 export type User = {
   id: string;
   name: string;
@@ -16,6 +18,26 @@ export type User = {
 export type Category = {
   id: PostCategoryId;
   name: Record<Locale, string>;
+};
+
+export type LocalizedWorkDocContent = {
+  title: string;
+  summary: string;
+  body: string[];
+  sections?: WorkDocSection[];
+};
+
+export type WorkDocSection = {
+  title: string;
+  items: string[];
+};
+
+export type WorkDoc = {
+  id: string;
+  category: WorkDocCategory;
+  tags: string[];
+  updatedAt: string;
+  content: Record<Locale, LocalizedWorkDocContent>;
 };
 
 export type LocalizedPostContent = {
@@ -47,6 +69,8 @@ export type CreatePostBody = {
   content: Record<Locale, LocalizedPostContent>;
 };
 
+export type UpdatePostBody = CreatePostBody;
+
 export type FavoriteMusic = {
   id: string;
   title: string;
@@ -75,7 +99,30 @@ export type AuthLoginBody = {
   password: string;
 };
 
+export type AuthRegisterBody = {
+  email: string;
+  name: string;
+  password: string;
+};
+
 export type AuthLoginResponse = {
   token: string;
   user: User;
+};
+
+export type ApiAudience = 'web' | 'admin';
+
+export type ApiAuthLevel = 'public' | 'user' | 'admin';
+
+export type ApiMethod = 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
+
+export type ApiEndpointInfo = {
+  id: string;
+  method: ApiMethod;
+  path: string;
+  title: string;
+  description: string;
+  module: string;
+  auth: ApiAuthLevel;
+  audiences: ApiAudience[];
 };

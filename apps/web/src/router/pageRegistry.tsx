@@ -3,6 +3,8 @@ import type { RouteLabelKey } from '../i18n';
 import { AboutPage } from '../pages/AboutPage';
 import { ArticlesPage } from '../pages/ArticlesPage';
 import { BlogHomePage } from '../pages/BlogHomePage';
+import { DocDetailPage } from '../pages/DocDetailPage';
+import { DocsPage } from '../pages/DocsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MusicPage } from '../pages/MusicPage';
 import { PostDetailPage } from '../pages/PostDetailPage';
@@ -35,6 +37,12 @@ export const registeredPages: RegisteredPage[] = [
     showInNav: true,
   },
   {
+    path: '/docs',
+    Component: DocsPage,
+    navKey: 'docs',
+    showInNav: true,
+  },
+  {
     path: '/submit',
     Component: SubmitPage,
     navKey: 'submit',
@@ -49,6 +57,10 @@ export const registeredPages: RegisteredPage[] = [
   {
     path: '/posts/:postId',
     Component: PostDetailPage,
+  },
+  {
+    path: '/docs/:docId',
+    Component: DocDetailPage,
   },
   {
     path: '/login',

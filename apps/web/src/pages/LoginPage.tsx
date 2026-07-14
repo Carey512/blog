@@ -1,4 +1,4 @@
-import { LockKeyhole, LogIn } from 'lucide-react';
+import { LockKeyhole, LogIn, UserPlus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/auth';
@@ -6,12 +6,14 @@ import { usePreferences } from '../context/preferences';
 import { messages } from '../i18n';
 
 export function LoginPage() {
-  const { isAuthenticated, login, logout, user } = useAuth();
+  const { isAuthenticated, login, logout, register, user } = useAuth();
   const { locale } = usePreferences();
   const t = messages[locale];
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('author@example.com');
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('author123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,13 +25,22 @@ export function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      if (mode === 'register') {
+        await register(name, email, password);
+      } else {
+        await login(email, password);
+      }
       navigate(redirectTo, { replace: true });
     } catch {
-      setError(t.loginError);
+      setError(mode === 'register' ? t.registerError : t.loginError);
     } finally {
       setLoading(false);
     }
+  }
+
+  function toggleMode() {
+    setError('');
+    setMode((current) => (current === 'login' ? 'register' : 'login'));
   }
 
   if (isAuthenticated && user) {
@@ -69,10 +80,25 @@ export function LoginPage() {
         <span className="grid h-12 w-12 place-items-center rounded-lg bg-primary text-primary-foreground">
           <LockKeyhole className="h-6 w-6" aria-hidden="true" />
         </span>
-        <h1 className="mt-5 text-3xl font-semibold text-foreground">{t.loginTitle}</h1>
-        <p className="mt-3 text-sm leading-6 text-muted">{t.loginIntro}</p>
+        <h1 className="mt-5 text-3xl font-semibold text-foreground">
+          {mode === 'register' ? t.registerTitle : t.loginTitle}
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          {mode === 'register' ? t.registerIntro : t.loginIntro}
+        </p>
 
-        <label className="mt-6 block text-sm font-medium text-foreground">
+        {mode === 'register' ? (
+          <label className="mt-6 block text-sm font-medium text-foreground">
+            {t.nameLabel}
+            <input
+              className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              onChange={(event) => setName(event.target.value)}
+              value={name}
+            />
+          </label>
+        ) : null}
+
+        <label className={`${mode === 'register' ? 'mt-4' : 'mt-6'} block text-sm font-medium text-foreground`}>
           {t.emailLabel}
           <input
             className="mt-2 h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
@@ -99,8 +125,26 @@ export function LoginPage() {
           disabled={loading}
           type="submit"
         >
-          <LogIn className="h-4 w-4" aria-hidden="true" />
-          {loading ? t.loginLoading : t.loginAction}
+          {mode === 'register' ? (
+            <UserPlus className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <LogIn className="h-4 w-4" aria-hidden="true" />
+          )}
+          {loading
+            ? mode === 'register'
+              ? t.registerLoading
+              : t.loginLoading
+            : mode === 'register'
+              ? t.registerAction
+              : t.loginAction}
+        </button>
+
+        <button
+          className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-semibold text-muted transition hover:text-foreground"
+          onClick={toggleMode}
+          type="button"
+        >
+          {mode === 'register' ? t.switchToLogin : t.switchToRegister}
         </button>
       </form>
     </main>

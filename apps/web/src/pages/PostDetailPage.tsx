@@ -52,7 +52,7 @@ export function PostDetailPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto w-full max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="rounded-lg border border-border bg-surface p-8 text-muted shadow-line">
           {t.loadingPosts}
         </div>
@@ -62,7 +62,7 @@ export function PostDetailPage() {
 
   if (!post) {
     return (
-      <main className="mx-auto w-full max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
         <div className="rounded-lg border border-border bg-surface p-8 shadow-line">
           <h1 className="text-3xl font-semibold text-foreground">{t.notFoundTitle}</h1>
           <p className="mt-3 text-muted">{error ? t.loadPostsError : t.notFoundBody}</p>
@@ -78,7 +78,7 @@ export function PostDetailPage() {
   const translated = post.content[locale];
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 pb-14 pt-8 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-7xl px-4 pb-14 pt-8 sm:px-6 lg:px-8">
       <Link className="inline-flex items-center gap-2 text-sm font-semibold text-primary" to="/articles">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         {t.nav.articles}
