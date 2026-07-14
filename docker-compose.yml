@@ -8,8 +8,8 @@ services:
       PORT: 4000
     restart: unless-stopped
     volumes:
-      - server_data:/app/apps/server/data
-      - server_uploads:/app/apps/server/uploads
+      - ./apps/server/data:/app/apps/server/data
+      - ./apps/server/uploads:/app/apps/server/uploads
 
   web:
     build:
@@ -20,7 +20,3 @@ services:
     ports:
       - "80:80"
     restart: unless-stopped
-
-volumes:
-  server_data:
-  server_uploads:
