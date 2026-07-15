@@ -17,7 +17,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('author123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const redirectTo = searchParams.get('redirect') ?? '/submit';
+  const redirectTo = searchParams.get('redirect') ?? '/articles';
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,9 +57,9 @@ export function LoginPage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
-              to="/submit"
+              to="/articles"
             >
-              {t.nav.submit}
+              {t.nav.articles}
             </Link>
             <button
               className="inline-flex min-h-11 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-semibold text-muted"

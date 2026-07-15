@@ -1,10 +1,10 @@
-import cors from '@fastify/cors';
+﻿import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
@@ -18,10 +18,14 @@ import type {
   Category,
   CreateMusicBody,
   CreatePostBody,
+  CreateWorkDocBody,
   FavoriteMusic,
   Locale,
+  MusicCategory,
+  MusicCategoryId,
   PostStatus,
   UpdatePostBody,
+  UpdateWorkDocBody,
   User,
   WorkDoc,
   WorkDocCategory,
@@ -37,6 +41,7 @@ const moduleDir = dirname(fileURLToPath(import.meta.url));
 const dataRoot = join(moduleDir, '..', 'data');
 const aboutCardsStorePath = join(dataRoot, 'about-cards.json');
 const categoriesStorePath = join(dataRoot, 'categories.json');
+const docsHtmlRoot = join(dataRoot, 'docs-html');
 const docsStorePath = join(dataRoot, 'docs.json');
 const musicStorePath = join(dataRoot, 'music.json');
 const postsStorePath = join(dataRoot, 'posts.json');
@@ -49,204 +54,254 @@ type UserAccount = User & {
 
 const endpointCatalog: ApiEndpointInfo[] = [
   {
-    auth: 'public',
-    audiences: ['admin'],
-    description: '检查后端服务是否在线，供管理后台状态栏使用。',
     id: 'health',
     method: 'GET',
-    module: 'system',
     path: '/health',
     title: '服务健康检查',
+    description: '检查后端服务是否在线。',
+    module: 'system',
+    auth: 'public',
+    audiences: ['admin'],
   },
   {
-    auth: 'public',
-    audiences: ['web', 'admin'],
-    description: '邮箱密码登录，返回 token 和当前用户信息。',
     id: 'auth-login',
     method: 'POST',
-    module: 'auth',
     path: '/api/auth/login',
     title: '登录',
+    description: '邮箱密码登录，返回 token 和当前用户信息。',
+    module: 'auth',
+    auth: 'public',
+    audiences: ['web', 'admin'],
   },
   {
-    auth: 'public',
-    audiences: ['web'],
-    description: '前台注册作者账号，注册成功后直接返回 token。',
     id: 'auth-register',
     method: 'POST',
-    module: 'auth',
     path: '/api/auth/register',
     title: '注册',
+    description: '前台注册作者账号，注册成功后返回 token。',
+    module: 'auth',
+    auth: 'public',
+    audiences: ['web'],
   },
   {
-    auth: 'user',
-    audiences: ['web'],
-    description: '根据 token 获取当前登录用户。',
     id: 'user-me',
     method: 'GET',
-    module: 'users',
     path: '/api/users/me',
     title: '当前用户',
+    description: '根据 token 获取当前登录用户。',
+    module: 'users',
+    auth: 'user',
+    audiences: ['web'],
   },
   {
-    auth: 'admin',
-    audiences: ['admin'],
-    description: '管理后台获取用户列表，支持 q 搜索昵称、邮箱或角色。',
     id: 'users-list',
     method: 'GET',
-    module: 'users',
     path: '/api/users?q=keyword',
     title: '用户列表',
-  },
-  {
+    description: '管理员获取用户列表，支持按昵称、邮箱或角色搜索。',
+    module: 'users',
     auth: 'admin',
     audiences: ['admin'],
-    description: '管理后台删除指定用户，禁止删除当前登录账号。',
+  },
+  {
     id: 'users-delete',
     method: 'DELETE',
-    module: 'users',
     path: '/api/users/:userId',
     title: '删除用户',
-  },
-  {
+    description: '管理员删除指定用户。',
+    module: 'users',
     auth: 'admin',
     audiences: ['admin'],
-    description: '管理后台读取接口配置详情，用于展示 Web/Admin 端接口清单。',
+  },
+  {
     id: 'meta-endpoints',
     method: 'GET',
-    module: 'system',
     path: '/api/meta/endpoints',
     title: '接口配置详情',
+    description: '管理员查看 Web/Admin 接口清单。',
+    module: 'system',
+    auth: 'admin',
+    audiences: ['admin'],
   },
   {
-    auth: 'public',
-    audiences: ['web'],
-    description: '前台读取文章分类和多语言分类名称。',
     id: 'categories-list',
     method: 'GET',
-    module: 'categories',
     path: '/api/categories',
     title: '文章分类',
-  },
-  {
+    description: '前台读取文章分类和多语言分类名称。',
+    module: 'categories',
     auth: 'public',
     audiences: ['web'],
-    description: '前台 About 页面卡片内容。',
+  },
+  {
     id: 'about-cards',
     method: 'GET',
-    module: 'site',
     path: '/api/about/cards',
     title: '关于页卡片',
+    description: '前台 About 页面卡片内容。',
+    module: 'site',
+    auth: 'public',
+    audiences: ['web'],
   },
   {
-    auth: 'public',
-    audiences: ['web', 'admin'],
-    description: '读取笔记文档列表，支持 q 搜索标题、摘要、标签和分类。',
     id: 'docs-list',
     method: 'GET',
-    module: 'docs',
     path: '/api/docs?q=keyword',
     title: '笔记文档列表',
-  },
-  {
+    description: '读取笔记文档列表，支持 q 搜索和分类过滤。',
+    module: 'docs',
     auth: 'public',
     audiences: ['web', 'admin'],
-    description: '按文档 ID 读取笔记文档详情。',
+  },
+  {
     id: 'docs-detail',
     method: 'GET',
-    module: 'docs',
     path: '/api/docs/:docId',
     title: '笔记文档详情',
-  },
-  {
+    description: '按文档 ID 读取笔记文档详情。',
+    module: 'docs',
     auth: 'public',
     audiences: ['web', 'admin'],
-    description: '读取文章列表，前台使用 published，后台用于管理总览。',
+  },
+  {
+    id: 'docs-create',
+    method: 'POST',
+    path: '/api/docs',
+    title: '新增笔记文档',
+    description: '登录用户提交文档，支持 HTML 文件或文本内容，接口自动保存 docs.json 和独立 HTML 文件。',
+    module: 'docs',
+    auth: 'user',
+    audiences: ['web', 'admin'],
+  },
+  {
+    id: 'docs-update',
+    method: 'PUT',
+    path: '/api/docs/:docId',
+    title: '编辑笔记文档',
+    description: '管理员编辑文档元数据、文本内容或重新上传 HTML 文件。',
+    module: 'docs',
+    auth: 'admin',
+    audiences: ['admin'],
+  },
+  {
+    id: 'docs-delete',
+    method: 'DELETE',
+    path: '/api/docs/:docId',
+    title: '删除笔记文档',
+    description: '管理员删除笔记文档，并清理独立 HTML 文件。',
+    module: 'docs',
+    auth: 'admin',
+    audiences: ['admin'],
+  },
+  {
+    id: 'docs-html',
+    method: 'GET',
+    path: '/docs-html/:file',
+    title: '独立 HTML 文档',
+    description: '读取单篇文档对应的独立 HTML 文件，用于内嵌预览和单独分享。',
+    module: 'docs',
+    auth: 'public',
+    audiences: ['web', 'admin'],
+  },
+  {
     id: 'posts-list',
     method: 'GET',
-    module: 'posts',
     path: '/api/posts?status=published',
     title: '文章列表',
+    description: '读取文章列表，前台使用 published，后台用于管理总览。',
+    module: 'posts',
+    auth: 'public',
+    audiences: ['web', 'admin'],
   },
   {
-    auth: 'public',
-    audiences: ['web'],
-    description: '前台文章详情页按文章 ID 读取内容。',
     id: 'posts-detail',
     method: 'GET',
-    module: 'posts',
     path: '/api/posts/:postId',
     title: '文章详情',
-  },
-  {
-    auth: 'user',
-    audiences: ['web', 'admin'],
-    description: '登录用户提交文章，默认进入 review 审核状态。',
-    id: 'posts-create',
-    method: 'POST',
+    description: '按文章 ID 读取文章详情。',
     module: 'posts',
-    path: '/api/posts',
-    title: '创建文章',
-  },
-  {
-    auth: 'admin',
-    audiences: ['admin'],
-    description: '管理后台更新文章标题、摘要、正文、分类、状态和封面。',
-    id: 'posts-update',
-    method: 'PUT',
-    module: 'posts',
-    path: '/api/posts/:postId',
-    title: '更新文章',
-  },
-  {
-    auth: 'admin',
-    audiences: ['admin'],
-    description: '管理后台删除指定文章，删除后前台列表不再展示。',
-    id: 'posts-delete',
-    method: 'DELETE',
-    module: 'posts',
-    path: '/api/posts/:postId',
-    title: '删除文章',
-  },
-  {
-    auth: 'public',
-    audiences: ['web', 'admin'],
-    description: '读取音乐列表，支持 q 搜索标题、歌手、专辑或平台。',
-    id: 'music-list',
-    method: 'GET',
-    module: 'music',
-    path: '/api/music?q=keyword',
-    title: '音乐列表',
-  },
-  {
     auth: 'public',
     audiences: ['web'],
-    description: '读取收藏音乐列表，兼容前台收藏音乐入口。',
+  },
+  {
+    id: 'posts-create',
+    method: 'POST',
+    path: '/api/posts',
+    title: '创建文章',
+    description: '登录用户提交文章，默认进入 review 审核状态。',
+    module: 'posts',
+    auth: 'user',
+    audiences: ['web', 'admin'],
+  },
+  {
+    id: 'posts-update',
+    method: 'PUT',
+    path: '/api/posts/:postId',
+    title: '更新文章',
+    description: '管理员更新文章标题、摘要、正文、分类、状态和封面。',
+    module: 'posts',
+    auth: 'admin',
+    audiences: ['admin'],
+  },
+  {
+    id: 'posts-delete',
+    method: 'DELETE',
+    path: '/api/posts/:postId',
+    title: '删除文章',
+    description: '管理员删除指定文章。',
+    module: 'posts',
+    auth: 'admin',
+    audiences: ['admin'],
+  },
+  {
+    id: 'music-list',
+    method: 'GET',
+    path: '/api/music?category=mandarin&q=keyword',
+    title: '音乐列表',
+    description: '读取音乐列表，支持按后端音乐分类和关键词搜索。',
+    module: 'music',
+    auth: 'public',
+    audiences: ['web', 'admin'],
+  },
+  {
+    id: 'music-categories',
+    method: 'GET',
+    path: '/api/music/categories',
+    title: '音乐分类',
+    description: '读取后端配置的音乐分类列表。',
+    module: 'music',
+    auth: 'public',
+    audiences: ['web', 'admin'],
+  },
+  {
     id: 'music-favorites',
     method: 'GET',
-    module: 'music',
     path: '/api/music/favorites',
     title: '收藏音乐',
+    description: '读取收藏音乐列表。',
+    module: 'music',
+    auth: 'public',
+    audiences: ['web'],
   },
   {
-    auth: 'user',
-    audiences: ['admin'],
-    description: '管理后台新增外部音乐链接。',
     id: 'music-create',
     method: 'POST',
-    module: 'music',
     path: '/api/music',
     title: '新增音乐',
-  },
-  {
+    description: '登录用户新增外部音乐链接。',
+    module: 'music',
     auth: 'user',
     audiences: ['admin'],
-    description: '管理后台上传本地音频文件并生成可播放地址。',
+  },
+  {
     id: 'music-upload',
     method: 'POST',
-    module: 'music',
     path: '/api/music/upload',
     title: '上传音乐',
+    description: '登录用户上传本地音频文件并生成可播放地址。',
+    module: 'music',
+    auth: 'user',
+    audiences: ['admin'],
   },
 ];
 
@@ -452,6 +507,258 @@ async function saveDocs() {
   await writeFile(docsStorePath, `${JSON.stringify(docs, null, 2)}\n`, 'utf8');
 }
 
+type DocWriteInput = CreateWorkDocBody & {
+  htmlSource?: string;
+  shouldWriteHtml: boolean;
+};
+
+type DocFormFields = Record<string, string>;
+
+const docCategories = new Set<WorkDocCategory>(['deployment', 'shortcut', 'workflow', 'reference']);
+
+function isWorkDocCategory(value: string): value is WorkDocCategory {
+  return docCategories.has(value as WorkDocCategory);
+}
+
+const musicCategories: MusicCategory[] = [
+  {
+    id: 'mandarin',
+    name: {
+      'zh-CN': '\u4e2d\u6587',
+      'en-US': 'Chinese',
+    },
+  },
+  {
+    id: 'instrumental',
+    name: {
+      'zh-CN': '\u7eaf\u97f3\u4e50',
+      'en-US': 'Instrumental',
+    },
+  },
+  {
+    id: 'live',
+    name: {
+      'zh-CN': '\u73b0\u573a',
+      'en-US': 'Live',
+    },
+  },
+  {
+    id: 'personal',
+    name: {
+      'zh-CN': '\u79c1\u85cf',
+      'en-US': 'Personal',
+    },
+  },
+];
+
+const musicCategoryIds = new Set<MusicCategoryId>(musicCategories.map((category) => category.id));
+
+function isMusicCategory(value?: string): value is MusicCategoryId {
+  return Boolean(value && musicCategoryIds.has(value as MusicCategoryId));
+}
+
+function normalizeMusicCategory(value?: string, fallback: MusicCategoryId = 'mandarin') {
+  return isMusicCategory(value) ? value : fallback;
+}
+
+function splitDocText(value: string) {
+  return value
+    .split(/\r?\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseDocTags(value?: string | string[]) {
+  if (Array.isArray(value)) {
+    return value.map((item) => item.trim()).filter(Boolean);
+  }
+
+  return (value ?? '')
+    .split(/[,锛孿n]/)
+    .map((item) => item.trim().replace(/^#/, ''))
+    .filter(Boolean);
+}
+
+function createDocId(title: string, currentId?: string) {
+  const normalized = (currentId || title)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  const base = normalized || `doc-${Date.now()}`;
+
+  let nextId = base;
+  let index = 1;
+
+  while (docs.some((doc) => doc.id === nextId)) {
+    index += 1;
+    nextId = `${base}-${index}`;
+  }
+
+  return nextId;
+}
+
+function toPlainDocInput(body: Partial<CreateWorkDocBody> & DocFormFields): DocWriteInput {
+  const titleZh = (body.titleZh || body.title || body.content?.['zh-CN']?.title || '').trim();
+  const textZh = (body.textZh || body.text || body.content?.['zh-CN']?.body?.join('\n\n') || '').trim();
+  const summaryZh = (
+    body.summaryZh ||
+    body.summary ||
+    body.content?.['zh-CN']?.summary ||
+    splitDocText(textZh)[0] ||
+    titleZh
+  ).trim();
+
+  const titleEn = (body.titleEn || body.content?.['en-US']?.title || titleZh).trim();
+  const textEn = (body.textEn || body.content?.['en-US']?.body?.join('\n\n') || textZh).trim();
+  const summaryEn = (
+    body.summaryEn ||
+    body.content?.['en-US']?.summary ||
+    splitDocText(textEn)[0] ||
+    summaryZh
+  ).trim();
+  const categoryValue = body.category ?? 'reference';
+  const htmlSource = (body.htmlSource || body.html || body.htmlContent || '').trim();
+
+  return {
+    category: isWorkDocCategory(categoryValue) ? categoryValue : 'reference',
+    content: {
+      'zh-CN': {
+        body: splitDocText(textZh),
+        summary: summaryZh,
+        title: titleZh,
+      },
+      'en-US': {
+        body: splitDocText(textEn),
+        summary: summaryEn,
+        title: titleEn,
+      },
+    },
+    html: htmlSource || undefined,
+    htmlSource: htmlSource || textZh || textEn || summaryZh,
+    shouldWriteHtml: Boolean(htmlSource || textZh || textEn),
+    tags: parseDocTags(body.tags),
+    updatedAt: (body.updatedAt || new Date().toISOString().slice(0, 10)).trim(),
+  };
+}
+
+async function readDocRequestInput(request: FastifyRequest): Promise<DocWriteInput> {
+  const contentType = request.headers['content-type'] ?? '';
+
+  if (!String(contentType).includes('multipart/form-data')) {
+    return toPlainDocInput((request.body ?? {}) as Partial<CreateWorkDocBody> & DocFormFields);
+  }
+
+  const fields: DocFormFields = {};
+  let htmlSource = '';
+
+  for await (const part of request.parts()) {
+    if (part.type === 'file') {
+      const extension = extname(part.filename || '.html').toLowerCase();
+
+      if (extension && extension !== '.html' && extension !== '.htm') {
+        continue;
+      }
+
+      const chunks: Buffer[] = [];
+
+      for await (const chunk of part.file) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+
+      htmlSource = Buffer.concat(chunks).toString('utf8').trim();
+    } else {
+      fields[part.fieldname] = String(part.value ?? '');
+    }
+  }
+
+  return toPlainDocInput({
+    ...fields,
+    htmlSource,
+  });
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderStandaloneDocHtml(doc: WorkDoc, sourceText: string) {
+  const content = doc.content['zh-CN'];
+  const paragraphs = splitDocText(sourceText || content.body.join('\n\n') || content.summary);
+
+  return `<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(content.title)}</title>
+    <style>
+      :root { color-scheme: light; font-family: Inter, "Microsoft YaHei", Arial, sans-serif; color: #172026; background: #f7faf9; }
+      body { margin: 0; padding: 32px 18px; }
+      main { max-width: 920px; margin: 0 auto; border: 1px solid #d9e5e1; border-radius: 12px; background: #fff; box-shadow: 0 18px 45px rgba(23, 32, 38, .08); overflow: hidden; }
+      header { padding: 28px; border-bottom: 1px solid #d9e5e1; background: linear-gradient(135deg, #eef8f5, #fff); }
+      .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; color: #62746f; font-size: 13px; }
+      .pill { border-radius: 999px; background: #e5f3ef; padding: 6px 10px; color: #087b73; font-weight: 700; }
+      h1 { margin: 0; font-size: clamp(30px, 5vw, 52px); line-height: 1.08; letter-spacing: 0; }
+      .summary { margin: 14px 0 0; color: #53645f; line-height: 1.7; }
+      article { padding: 28px; }
+      p { margin: 0 0 16px; color: #263733; line-height: 1.9; font-size: 16px; }
+      @media (max-width: 640px) { body { padding: 14px; } header, article { padding: 20px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="meta">
+          <span class="pill">${escapeHtml(doc.category)}</span>
+          <span>${escapeHtml(doc.updatedAt)}</span>
+          ${doc.tags.map((tag) => `<span>#${escapeHtml(tag)}</span>`).join('')}
+        </div>
+        <h1>${escapeHtml(content.title)}</h1>
+        <p class="summary">${escapeHtml(content.summary)}</p>
+      </header>
+      <article>
+        ${paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n        ')}
+      </article>
+    </main>
+  </body>
+</html>
+`;
+}
+
+async function writeDocHtml(doc: WorkDoc, source: string) {
+  if (!doc.htmlFile) {
+    return;
+  }
+
+  await mkdir(docsHtmlRoot, { recursive: true });
+  const trimmed = source.trim();
+  const html = /^<!doctype html/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)
+    ? trimmed
+    : renderStandaloneDocHtml(doc, trimmed);
+
+  await writeFile(join(docsHtmlRoot, doc.htmlFile), html, 'utf8');
+}
+
+async function removeDocHtmlIfUnused(fileName?: string) {
+  if (!fileName || docs.some((doc) => doc.htmlFile === fileName)) {
+    return;
+  }
+
+  try {
+    await unlink(join(docsHtmlRoot, fileName));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
 
 async function loadPosts() {
   await mkdir(dataRoot, { recursive: true });
@@ -478,7 +785,25 @@ async function loadMusic() {
 
   try {
     const content = await readFile(musicStorePath, 'utf8');
-    favoriteMusic = JSON.parse(content) as FavoriteMusic[];
+    const storedMusic = JSON.parse(content) as Array<FavoriteMusic & { categoryId?: string }>;
+    let changed = false;
+
+    favoriteMusic = storedMusic.map((track) => {
+      const categoryId = normalizeMusicCategory(track.categoryId);
+
+      if (categoryId !== track.categoryId) {
+        changed = true;
+      }
+
+      return {
+        ...track,
+        categoryId,
+      };
+    });
+
+    if (changed) {
+      await saveMusic();
+    }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw error;
@@ -745,6 +1070,148 @@ server.get<{ Params: { docId: string } }>('/api/docs/:docId', async (request, re
   return doc;
 });
 
+server.post('/api/docs', async (request, reply): Promise<WorkDoc> => {
+  const user = requireAuthenticatedUser(request, reply);
+
+  if (!user) {
+    return undefined as never;
+  }
+
+  const input = await readDocRequestInput(request);
+  const title = input.content['zh-CN'].title;
+
+  if (!title) {
+    return reply.code(400).send({
+      message: 'title is required',
+    } as never);
+  }
+
+  const id = createDocId(title);
+  const doc: WorkDoc = {
+    category: input.category,
+    content: input.content,
+    htmlFile: `${id}.html`,
+    id,
+    tags: input.tags ?? [],
+    updatedAt: input.updatedAt || new Date().toISOString().slice(0, 10),
+  };
+
+  await writeDocHtml(doc, input.htmlSource || input.content['zh-CN'].body.join('\n\n'));
+  docs.unshift(doc);
+  await saveDocs();
+
+  reply.code(201);
+  return doc;
+});
+
+server.put<{ Params: { docId: string } }>('/api/docs/:docId', async (request, reply): Promise<WorkDoc> => {
+  const user = requireAuthenticatedUser(request, reply);
+
+  if (!user) {
+    return undefined as never;
+  }
+
+  if (user.role !== 'admin') {
+    return reply.code(403).send({
+      message: 'Admin role is required',
+    } as never);
+  }
+
+  const index = docs.findIndex((item) => item.id === request.params.docId);
+
+  if (index < 0) {
+    return reply.code(404).send({
+      message: 'Document not found',
+    } as never);
+  }
+
+  const previous = docs[index];
+  const input = await readDocRequestInput(request);
+
+  if (!input.content['zh-CN'].title) {
+    return reply.code(400).send({
+      message: 'title is required',
+    } as never);
+  }
+
+  const updated: WorkDoc = {
+    ...previous,
+    category: input.category,
+    content: input.content,
+    htmlFile: previous.htmlFile || `${previous.id}.html`,
+    tags: input.tags ?? [],
+    updatedAt: input.updatedAt || previous.updatedAt,
+  };
+
+  if (input.shouldWriteHtml || !previous.htmlFile) {
+    await writeDocHtml(updated, input.htmlSource || input.content['zh-CN'].body.join('\n\n'));
+  }
+
+  docs[index] = updated;
+  await saveDocs();
+
+  return updated;
+});
+
+server.delete<{ Params: { docId: string } }>('/api/docs/:docId', async (request, reply) => {
+  const user = requireAuthenticatedUser(request, reply);
+
+  if (!user) {
+    return undefined as never;
+  }
+
+  if (user.role !== 'admin') {
+    return reply.code(403).send({
+      message: 'Admin role is required',
+    });
+  }
+
+  const target = docs.find((item) => item.id === request.params.docId);
+
+  if (!target) {
+    return reply.code(404).send({
+      message: 'Document not found',
+    });
+  }
+
+  docs = docs.filter((item) => item.id !== target.id);
+  await saveDocs();
+  await removeDocHtmlIfUnused(target.htmlFile);
+
+  return {
+    deletedDoc: target,
+    ok: true,
+  };
+});
+
+server.get<{ Params: { file: string } }>('/docs-html/:file', async (request, reply) => {
+  const file = decodeURIComponent(request.params.file);
+  const allowed = docs.some((doc) => doc.htmlFile === file);
+  const safeFile = file.endsWith('.html') && !file.includes('/') && !file.includes('\\') && !file.includes('..');
+
+  if (!allowed || !safeFile) {
+    return reply.code(404).send({
+      message: 'Document html not found',
+    });
+  }
+
+  try {
+    const html = await readFile(join(docsHtmlRoot, file), 'utf8');
+
+    reply.header('Cache-Control', 'public, max-age=60');
+    reply.type('text/html; charset=utf-8');
+    return html;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return reply.code(404).send({
+        message: 'Document html not found',
+      });
+    }
+
+    throw error;
+  }
+});
+
 server.get<{ Querystring: { status?: PostStatus } }>('/api/posts', async (request): Promise<ApiPost[]> => {
   if (!request.query.status) {
     return posts;
@@ -884,14 +1351,23 @@ server.delete<{ Params: { postId: string } }>('/api/posts/:postId', async (reque
   };
 });
 
-server.get<{ Querystring: { q?: string } }>('/api/music', async (request): Promise<FavoriteMusic[]> => {
-  const query = request.query.q?.trim().toLowerCase();
+server.get('/api/music/categories', async (): Promise<MusicCategory[]> => musicCategories);
 
-  if (!query) {
-    return favoriteMusic;
+server.get<{ Querystring: { category?: MusicCategoryId | 'all'; q?: string } }>('/api/music', async (request): Promise<FavoriteMusic[]> => {
+  const query = request.query.q?.trim().toLowerCase();
+  const category = request.query.category;
+
+  let result = favoriteMusic;
+
+  if (category && category !== 'all' && isMusicCategory(category)) {
+    result = result.filter((track) => track.categoryId === category);
   }
 
-  return favoriteMusic.filter((track) =>
+  if (!query) {
+    return result;
+  }
+
+  return result.filter((track) =>
     [track.title, track.artist, track.album, track.platform]
       .filter(Boolean)
       .some((value) => value?.toLowerCase().includes(query)),
@@ -913,6 +1389,7 @@ server.post<{ Body: CreateMusicBody }>('/api/music', async (request, reply): Pro
     artist: request.body.artist,
     audioUrl: request.body.audioUrl,
     album: request.body.album,
+    categoryId: normalizeMusicCategory(request.body.categoryId, 'personal'),
     cover: request.body.cover,
     createdAt: now,
     platform: request.body.platform,
@@ -961,6 +1438,7 @@ server.post('/api/music/upload', async (request, reply): Promise<FavoriteMusic> 
     album: fields.album || undefined,
     artist: fields.artist,
     audioUrl: uploadedAudioUrl,
+    categoryId: normalizeMusicCategory(fields.categoryId, 'personal'),
     cover: fields.cover || undefined,
     createdAt: new Date().toISOString(),
     platform: 'Local Upload',

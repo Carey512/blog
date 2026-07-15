@@ -1,86 +1,226 @@
-import { ArrowUpRight, Mail, Search } from 'lucide-react';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BookOpenText,
+  FileText,
+  Music2,
+  Newspaper,
+  Pause,
+  Play,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useMemo, useState } from 'react';
-import type { Locale } from '@blog/shared';
-import { PostCard } from '../components/PostCard';
-import { PostMeta } from '../components/PostMeta';
-import { useCategories } from '../context/categories';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { FavoriteMusic, Locale, WorkDoc } from '@blog/shared';
+import {
+  formatTrackLine,
+  MusicFloatingPlayer,
+} from '../components/MusicFloatingPlayer';
 import { usePreferences } from '../context/preferences';
 import { usePublishedPosts } from '../hooks/usePublishedPosts';
 import { messages } from '../i18n';
-import { blogService, type BlogCategory, type Category, type CategoryFilter, type Post } from '../services/blogService';
+import {
+  blogService,
+  type CategoryFilter,
+  type Post,
+} from '../services/blogService';
+import { docsService } from '../services/docsService';
+import { musicService } from '../services/musicService';
 
 export function BlogHomePage() {
   const { locale } = usePreferences();
-  const { categories, getCategoryLabel } = useCategories();
   const t = messages[locale];
-  const { error, loading, posts } = usePublishedPosts();
-  const featuredPost = blogService.getFeaturedPost(posts);
-  const latestPosts = featuredPost ? posts.filter((post) => post.id !== featuredPost.id) : [];
-  const [category, setCategory] = useState<CategoryFilter>('all');
-  const [query, setQuery] = useState('');
+  const {
+    error: postsError,
+    loading: postsLoading,
+    posts,
+  } = usePublishedPosts();
+  const [docs, setDocs] = useState<WorkDoc[]>([]);
+  const [docsError, setDocsError] = useState('');
+  const [docsLoading, setDocsLoading] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [activeTrack, setActiveTrack] = useState<FavoriteMusic | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [musicError, setMusicError] = useState('');
+  const [musicLoading, setMusicLoading] = useState(true);
+  const [tracks, setTracks] = useState<FavoriteMusic[]>([]);
 
-  const filteredPosts = useFilteredPosts(latestPosts, category, query, locale);
+  useEffect(() => {
+    let alive = true;
+
+    async function loadHomeData() {
+      try {
+        setMusicLoading(true);
+        setMusicError('');
+        const nextTracks = await musicService.getMusic();
+
+        if (alive) {
+          setTracks(nextTracks);
+        }
+      } catch {
+        if (alive) {
+          setTracks([]);
+          setMusicError('failed');
+        }
+      } finally {
+        if (alive) {
+          setMusicLoading(false);
+        }
+      }
+
+      try {
+        setDocsLoading(true);
+        setDocsError('');
+        const nextDocs = await docsService.getDocs();
+
+        if (alive) {
+          setDocs(nextDocs);
+        }
+      } catch {
+        if (alive) {
+          setDocs([]);
+          setDocsError('failed');
+        }
+      } finally {
+        if (alive) {
+          setDocsLoading(false);
+        }
+      }
+    }
+
+    void loadHomeData();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio || !activeTrack) {
+      return;
+    }
+
+    if (isPlaying) {
+      void audio.play().catch(() => setIsPlaying(false));
+      return;
+    }
+
+    audio.pause();
+  }, [activeTrack, isPlaying]);
+
+  function playTrack(track: FavoriteMusic) {
+    if (activeTrack?.id === track.id && isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+
+    setActiveTrack(track);
+    setIsPlaying(true);
+  }
+
+  function closePlayer() {
+    audioRef.current?.pause();
+    setActiveTrack(null);
+    setIsPlaying(false);
+  }
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 pb-12 pt-6 sm:px-6 lg:px-8">
-      <section className="grid items-end gap-6 border-b border-border pb-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-            {t.eyebrow}
-          </p>
-          <h1 className="mt-4 max-w-4xl text-4xl font-semibold leading-tight text-foreground sm:text-5xl lg:text-6xl">
-            {t.headline}
-          </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-muted sm:text-lg">
-            {t.intro}
-          </p>
-        </div>
-
-        <Newsletter locale={locale} />
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-7 px-3 pb-28 pt-5 sm:px-5 lg:px-6">
+      <section className="border-b border-border pb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          {t.eyebrow}
+        </p>
+        <h1 className="mt-1 max-w-4xl text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
+          {t.headline}
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{t.intro}</p>
       </section>
 
-      <section className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-        {featuredPost ? (
-          <FeaturedPost locale={locale} post={featuredPost} />
-        ) : (
-          <PostStatusPanel error={error} loading={loading} locale={locale} />
-        )}
-
-        <aside className="flex flex-col gap-5">
-          <FilterPanel
-            category={category}
-            locale={locale}
-            categories={categories}
-            onCategoryChange={setCategory}
-            onQueryChange={setQuery}
-            query={query}
+      <HomeModule
+        eyebrow={locale === 'zh-CN' ? '内容模块' : 'Content modules'}
+        Icon={Newspaper}
+        moreLabel={locale === 'zh-CN' ? '更多文章' : 'More articles'}
+        title={t.nav.articles}
+        to="/articles"
+      >
+        {postsLoading || postsError ? (
+          <ModuleStatus
+            error={postsError}
+            loading={postsLoading}
+            text={postsError ? t.loadPostsError : t.loadingPosts}
           />
-          <TopicRail categories={categories} locale={locale} posts={posts} />
-        </aside>
-      </section>
-
-      <section className="space-y-5">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-              {t.latest}
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold text-foreground sm:text-3xl">
-              {category === 'all' ? t.all : getCategoryLabel(category, locale)}
-            </h2>
-          </div>
-          <p className="hidden text-sm text-muted sm:block">
-            {filteredPosts.length} / {latestPosts.length}
-          </p>
-        </div>
-
-        {loading || error ? (
-          <PostStatusPanel error={error} loading={loading} locale={locale} />
         ) : (
-          <PostGrid locale={locale} posts={filteredPosts} />
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+            {posts.slice(0, 4).map(post => (
+              <HomeArticleCard key={post.id} locale={locale} post={post} />
+            ))}
+          </div>
         )}
-      </section>
+      </HomeModule>
+
+      <HomeModule
+        eyebrow={locale === 'zh-CN' ? '个人收藏' : 'Personal library'}
+        Icon={Music2}
+        moreLabel={locale === 'zh-CN' ? '更多音乐' : 'More music'}
+        title={t.nav.music}
+        to="/music"
+      >
+        {musicLoading || musicError ? (
+          <ModuleStatus
+            error={musicError}
+            loading={musicLoading}
+            text={musicError ? t.loadMusicError : t.loadingMusic}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+            {tracks.slice(0, 4).map(track => (
+              <HomeMusicCard
+                active={activeTrack?.id === track.id}
+                isPlaying={isPlaying}
+                key={track.id}
+                locale={locale}
+                onPlay={() => playTrack(track)}
+                track={track}
+              />
+            ))}
+          </div>
+        )}
+      </HomeModule>
+
+      <HomeModule
+        eyebrow={locale === 'zh-CN' ? '工作沉淀' : 'Work notes'}
+        Icon={BookOpenText}
+        moreLabel={locale === 'zh-CN' ? '更多文档' : 'More docs'}
+        title={t.nav.docs}
+        to="/docs"
+      >
+        {docsLoading || docsError ? (
+          <ModuleStatus
+            error={docsError}
+            loading={docsLoading}
+            text={docsError ? t.docsLoadError : t.docsLoading}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+            {docs.slice(0, 4).map(doc => (
+              <HomeDocCard key={doc.id} doc={doc} locale={locale} />
+            ))}
+          </div>
+        )}
+      </HomeModule>
+
+      {activeTrack ? (
+        <MusicFloatingPlayer
+          audioRef={audioRef}
+          isPlaying={isPlaying}
+          onClose={closePlayer}
+          onEnded={() => setIsPlaying(false)}
+          onPause={() => setIsPlaying(false)}
+          onPlay={() => setIsPlaying(true)}
+          track={activeTrack}
+        />
+      ) : null}
     </main>
   );
 }
@@ -94,7 +234,7 @@ export function useFilteredPosts(
   return useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase(locale);
 
-    return posts.filter((post) => {
+    return posts.filter(post => {
       if (category !== 'all' && post.categoryId !== category) {
         return false;
       }
@@ -104,33 +244,14 @@ export function useFilteredPosts(
       }
 
       const translated = post.content[locale];
-      const searchable = `${translated.title} ${translated.excerpt} ${translated.author}`.toLocaleLowerCase(
-        locale,
-      );
+      const searchable =
+        `${translated.title} ${translated.excerpt} ${translated.author}`.toLocaleLowerCase(
+          locale,
+        );
 
       return searchable.includes(normalizedQuery);
     });
   }, [category, locale, posts, query]);
-}
-
-export function PostGrid({ locale, posts }: { locale: Locale; posts: Post[] }) {
-  const t = messages[locale];
-
-  if (!posts.length) {
-    return (
-      <div className="rounded-lg border border-dashed border-border bg-surface px-6 py-10 text-center text-muted">
-        {t.noResults}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-      {posts.map((post) => (
-        <PostCard key={post.id} locale={locale} post={post} />
-      ))}
-    </div>
-  );
 }
 
 export function PostStatusPanel({
@@ -151,152 +272,189 @@ export function PostStatusPanel({
   );
 }
 
-function Newsletter({ locale }: { locale: Locale }) {
-  const t = messages[locale];
-
+function HomeModule({
+  children,
+  eyebrow,
+  Icon,
+  moreLabel,
+  title,
+  to,
+}: {
+  children: React.ReactNode;
+  eyebrow: string;
+  Icon: typeof Newspaper;
+  moreLabel: string;
+  title: string;
+  to: string;
+}) {
   return (
-    <form className="rounded-lg border border-border bg-surface p-4 shadow-soft">
-      <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
-          <Mail className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div>
-          <h2 className="text-base font-semibold text-foreground">{t.newsletterTitle}</h2>
-          <p className="mt-1 text-sm leading-6 text-muted">{t.newsletterBody}</p>
+    <section className="space-y-3">
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              {eyebrow}
+            </p>
+            <h2 className="truncate text-xl font-semibold text-foreground sm:text-2xl">
+              {title}
+            </h2>
+          </div>
         </div>
-      </div>
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
-        <input
-          className="min-h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
-          placeholder={t.emailPlaceholder}
-          type="email"
-        />
-        <button
-          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-          type="button"
+        <Link
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:text-foreground"
+          to={to}
         >
-          {t.subscribe}
-        </button>
-      </div>
-    </form>
+          {moreLabel}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </header>
+      {children}
+    </section>
   );
 }
 
-function FeaturedPost({ locale, post }: { locale: Locale; post: Post }) {
-  const t = messages[locale];
+function HomeArticleCard({ locale, post }: { locale: Locale; post: Post }) {
   const translated = post.content[locale];
 
   return (
-    <article className="overflow-hidden rounded-lg border border-border bg-surface shadow-soft">
-      <div className="grid h-full lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.02fr)]">
-        <Link className="relative min-h-[260px] overflow-hidden bg-surface-muted" to={`/posts/${post.id}`}>
-          <img
-            alt={translated.title}
-            className="h-full w-full object-cover"
-            loading="eager"
-            src={post.cover}
-          />
-          <span className="absolute left-4 top-4 rounded-md bg-background/92 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary backdrop-blur">
-            {t.featured}
-          </span>
+    <article className="overflow-hidden rounded-lg border border-border bg-surface shadow-line transition hover:-translate-y-0.5 hover:shadow-soft">
+      <Link
+        className="block aspect-[2/1] overflow-hidden bg-surface-muted"
+        to={`/posts/${post.id}`}
+      >
+        <img
+          alt={translated.title}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          src={post.cover}
+        />
+      </Link>
+      <div className="p-2.5">
+        <p className="truncate text-xs font-semibold text-primary">
+          {translated.author}
+        </p>
+        <h3 className="mt-1 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-foreground">
+          {translated.title}
+        </h3>
+        <Link
+          className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary"
+          to={`/posts/${post.id}`}
+        >
+          Read
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
-        <div className="flex flex-col justify-between gap-8 p-5 sm:p-7">
-          <div>
-            <PostMeta locale={locale} post={post} />
-            <h2 className="mt-4 text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
-              {translated.title}
-            </h2>
-            <p className="mt-4 text-base leading-7 text-muted">{translated.excerpt}</p>
-          </div>
-          <Link
-            className="inline-flex w-fit items-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
-            to={`/posts/${post.id}`}
-          >
-            {t.readMore}
-            <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </div>
       </div>
     </article>
   );
 }
 
-export function FilterPanel({
-  category,
-  categories,
+function HomeMusicCard({
+  active,
+  isPlaying,
   locale,
-  onCategoryChange,
-  onQueryChange,
-  query,
+  onPlay,
+  track,
 }: {
-  category: CategoryFilter;
-  categories: BlogCategory[];
+  active: boolean;
+  isPlaying: boolean;
   locale: Locale;
-  onCategoryChange: (category: CategoryFilter) => void;
-  onQueryChange: (query: string) => void;
-  query: string;
+  onPlay: () => void;
+  track: FavoriteMusic;
 }) {
   const t = messages[locale];
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 shadow-line">
-      <label className="relative block">
-        <span className="sr-only">{t.searchLabel}</span>
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-        <input
-          aria-label={t.searchLabel}
-          className="h-11 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={t.searchPlaceholder}
-          value={query}
-        />
-      </label>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {[{ id: 'all' as const, label: t.all }, ...categories.map((item) => ({ id: item.id, label: item.name[locale] }))].map((item) => (
+    <article className="overflow-hidden rounded-lg border border-border bg-surface shadow-line">
+      <div className="aspect-[2/1] bg-surface-muted">
+        {track.cover ? (
+          <img
+            alt={track.title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            src={track.cover}
+          />
+        ) : (
+          <div className="grid h-full place-items-center text-primary">
+            <Music2 className="h-8 w-8" aria-hidden="true" />
+          </div>
+        )}
+      </div>
+      <div className="p-2.5">
+        <h3 className="truncate text-sm font-semibold text-foreground">
+          {track.title}
+        </h3>
+        <p className="mt-1 truncate text-xs text-muted">
+          {formatTrackLine(track)}
+        </p>
+        {track.audioUrl ? (
           <button
-            className={`min-h-10 rounded-lg border px-3 text-sm font-medium transition ${
-              category === item.id
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-muted hover:text-foreground'
+            className={`mt-2 inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition ${
+              active
+                ? 'bg-accent text-accent-foreground'
+                : 'bg-primary text-primary-foreground hover:opacity-90'
             }`}
-            key={item.id}
-            onClick={() => onCategoryChange(item.id)}
+            onClick={onPlay}
             type="button"
           >
-            {item.label}
+            {active && isPlaying ? (
+              <Pause className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            {active && isPlaying ? t.musicNowPlaying : t.playMusic}
           </button>
-        ))}
+        ) : null}
       </div>
-    </div>
+    </article>
   );
 }
 
-function TopicRail({
-  categories,
-  locale,
-  posts,
-}: {
-  categories: BlogCategory[];
-  locale: Locale;
-  posts: Post[];
-}) {
-  const { getCategoryLabel } = useCategories();
-  const counts = blogService.getCategoryCounts(posts, categories);
+function HomeDocCard({ doc, locale }: { doc: WorkDoc; locale: Locale }) {
+  const translated = doc.content[locale] ?? doc.content['zh-CN'];
 
   return (
-    <div className="grid gap-2 rounded-lg border border-border bg-surface p-4 shadow-line sm:grid-cols-2 lg:grid-cols-1">
-      {counts.map((item: { id: Category; count: number }) => (
-        <div
-          className="flex items-center justify-between rounded-lg bg-background px-3 py-3"
-          key={item.id}
-        >
-          <span className="text-sm font-medium text-foreground">{getCategoryLabel(item.id, locale)}</span>
-          <span className="rounded-md bg-surface-muted px-2 py-1 text-xs font-semibold text-muted">
-            {item.count}
+    <article className="rounded-lg border border-border bg-surface p-3 shadow-line transition hover:-translate-y-0.5 hover:shadow-soft">
+      <Link
+        className="flex min-h-32 flex-col justify-between"
+        to={`/docs/${doc.id}`}
+      >
+        <div>
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+            <FileText className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <h3 className="mt-3 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-foreground">
+            {translated.title}
+          </h3>
+          <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">
+            {translated.summary}
+          </p>
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted">
+          <span>{doc.updatedAt}</span>
+          <span className="rounded-md bg-surface-muted px-2 py-1">
+            {doc.category}
           </span>
         </div>
-      ))}
+      </Link>
+    </article>
+  );
+}
+
+function ModuleStatus({
+  error,
+  loading,
+  text,
+}: {
+  error: string;
+  loading: boolean;
+  text: string;
+}) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-surface px-6 py-10 text-center text-sm text-muted">
+      {loading || error ? text : 'No data'}
     </div>
   );
 }

@@ -5,7 +5,7 @@ export type Category = PostCategoryId;
 export type BlogCategory = ApiCategory;
 export type CategoryFilter = Category | 'all';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:4000';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const { headers, ...restOptions } = options ?? {};

@@ -1,6 +1,6 @@
 import type { Locale, PostCategoryId } from '@blog/shared';
 
-export type RouteLabelKey = 'home' | 'articles' | 'music' | 'docs' | 'submit' | 'about';
+export type RouteLabelKey = 'home' | 'articles' | 'music' | 'docs' | 'about';
 
 export type LocaleOption = {
   id: Locale;
@@ -70,23 +70,6 @@ export type LocaleMessages = {
   musicPause: string;
   musicNoAudio: string;
   openSource: string;
-  submitAction: string;
-  submitCategory: string;
-  submitCover: string;
-  submitError: string;
-  submitExcerptEn: string;
-  submitExcerptZh: string;
-  submitFormBody: string;
-  submitFormTitle: string;
-  submitIntro: string;
-  submitLoading: string;
-  submitLoginRequiredBody: string;
-  submitLoginRequiredTitle: string;
-  submitReviewHint: string;
-  submitSuccess: string;
-  submitTitle: string;
-  submitTitleEn: string;
-  submitTitleZh: string;
   switchToLogin: string;
   switchToRegister: string;
   newsletterTitle: string;
@@ -97,6 +80,21 @@ export type LocaleMessages = {
   allArticlesTitle: string;
   allArticlesIntro: string;
   articleCount: string;
+  articleUploadAction: string;
+  articleLoginUploadAction: string;
+  articleUploadTitle: string;
+  articleTitleZhLabel: string;
+  articleTitleEnLabel: string;
+  articleCoverLabel: string;
+  articleCategoryLabel: string;
+  articleBodyZhLabel: string;
+  articleBodyEnLabel: string;
+  articleUploadHint: string;
+  articleSubmitReview: string;
+  articleSubmitting: string;
+  articleUploadLoginRequired: string;
+  articleSubmitSuccessPrefix: string;
+  articleSubmitError: string;
   aboutTitle: string;
   aboutIntro: string;
   backendTitle: string;

@@ -8,7 +8,6 @@ import { DocsPage } from '../pages/DocsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MusicPage } from '../pages/MusicPage';
 import { PostDetailPage } from '../pages/PostDetailPage';
-import { SubmitPage } from '../pages/SubmitPage';
 
 export type RegisteredPage = {
   path: string;
@@ -40,12 +39,6 @@ export const registeredPages: RegisteredPage[] = [
     path: '/docs',
     Component: DocsPage,
     navKey: 'docs',
-    showInNav: true,
-  },
-  {
-    path: '/submit',
-    Component: SubmitPage,
-    navKey: 'submit',
     showInNav: true,
   },
   {

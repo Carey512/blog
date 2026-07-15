@@ -2,318 +2,117 @@
   {
     "id": "deploy-project-overseas",
     "category": "deployment",
-    "tags": ["deployment", "docker", "server"],
+    "tags": [
+      "deployment",
+      "docker",
+      "server"
+    ],
     "updatedAt": "2026-07-14",
     "content": {
       "zh-CN": {
         "title": "海外服务器部署项目",
         "summary": "记录从购买海外服务器、安装 Docker 到启动 web/admin/server 的完整流程。",
-        "body": [
-          "推荐先使用一台海外 Ubuntu 服务器，开放 22 和 80 端口，不需要域名也可以先用公网 IP 访问。",
-          "服务器准备好后安装 Docker Engine 和 Docker Compose 插件，然后从 GitHub 拉取项目代码。",
-          "进入项目目录执行 docker compose up -d --build，Nginx 会把 / 指向前台，把 /admin/ 指向后台，把 /api/ 代理到后端服务。",
-          "第一次上线后先验证 http://服务器IP/、http://服务器IP/admin/ 和 http://服务器IP/health 是否可访问。",
-          "后续有域名时，再拆成 example.com、admin.example.com、api.example.com 和 assets.example.com。"
-        ]
+        "body": []
       },
       "en-US": {
         "title": "Deploying the project on an overseas server",
         "summary": "A compact checklist for buying a server, installing Docker, and running web/admin/server.",
-        "body": [
-          "Start with an overseas Ubuntu server and open ports 22 and 80. A public IP is enough before buying a domain.",
-          "Install Docker Engine and the Docker Compose plugin, then clone the GitHub repository onto the server.",
-          "Run docker compose up -d --build from the project folder. Nginx serves web at /, admin at /admin/, and proxies /api/ to the backend.",
-          "After the first deployment, verify http://SERVER_IP/, http://SERVER_IP/admin/, and http://SERVER_IP/health.",
-          "When a domain is ready, split traffic into example.com, admin.example.com, api.example.com, and assets.example.com."
-        ]
+        "body": []
       }
-    }
+    },
+    "htmlFile": "deploy-project-overseas.html"
   },
   {
     "id": "buy-digitalocean-server",
     "category": "deployment",
-    "tags": ["digitalocean", "server", "ssh", "payment"],
+    "tags": [
+      "digitalocean",
+      "server",
+      "ssh",
+      "payment"
+    ],
     "updatedAt": "2026-07-14",
     "content": {
       "zh-CN": {
         "title": "DigitalOcean 购买海外服务器流程",
         "summary": "从准备 SSH 公钥、选择 Droplet 配置、绑定支付方式到拿到公网 IP 的完整购买步骤，适合第一次部署博客项目时照着执行。",
-        "body": [
-          "这篇文档只记录购买服务器阶段，不包含后续 Docker 安装和项目部署。当前项目建议先买一台海外 Ubuntu 服务器，用公网 IP 访问，等项目稳定后再绑定域名和 HTTPS。",
-          "推荐先用最低配或入门配置完成第一版部署验证。博客项目成熟后，再按访问量、图片/音乐资源体积、后台上传频率逐步升级服务器或拆分对象存储。",
-          "DigitalOcean 的界面和支付能力可能随账号地区变化，付款方式以结账页面实际显示为准；如果看不到本地支付方式，优先准备国际信用卡、借记卡、PayPal、Google Pay 或 Apple Pay 等可用方式。"
-        ],
-        "sections": [
-          {
-            "title": "准备 SSH 公钥",
-            "items": [
-              "在 PowerShell 新窗口执行 ssh -V，确认 OpenSSH 已经加入 Path。",
-              "如果还没有密钥，执行 ssh-keygen -t ed25519 -C \"blog-server\" 生成密钥。",
-              "查看公钥命令：Get-Content $env:USERPROFILE\\.ssh\\id_ed25519.pub。",
-              "只复制 .pub 公钥内容，不要复制没有 .pub 后缀的私钥文件。"
-            ]
-          },
-          {
-            "title": "进入 DigitalOcean 控制台",
-            "items": [
-              "打开 https://cloud.digitalocean.com/ 并注册或登录账号。",
-              "如果是新账号，先完成邮箱验证和基础账号信息。",
-              "进入 Create 菜单，选择 Droplets；也可以直接打开 https://cloud.digitalocean.com/droplets/new。",
-              "项目可以先放在默认 first-project，后续再按环境拆分 production、staging。"
-            ]
-          },
-          {
-            "title": "选择机房区域",
-            "items": [
-              "优先选择离目标用户更近的海外节点，例如 Singapore、San Francisco、New York、Frankfurt。",
-              "如果你的主要访问者在国内，Singapore 通常延迟更友好。",
-              "先不要为延迟纠结太久，第一台机器重点是跑通部署闭环。",
-              "后续有真实访问量后，再用监控和测速决定是否迁移区域。"
-            ]
-          },
-          {
-            "title": "选择系统镜像",
-            "items": [
-              "Image 选择 Ubuntu LTS 版本，优先选择页面推荐的长期支持版本。",
-              "博客项目后续会用 Docker 部署，所以不需要选择 Node.js、Nginx 等 Marketplace 镜像。",
-              "保持系统尽量干净，部署依赖统一交给 Docker 和 docker compose。",
-              "创建后记录系统版本，方便后续写部署文档和排错。"
-            ]
-          },
-          {
-            "title": "选择服务器规格",
-            "items": [
-              "第一版可以选择 Basic / Regular / 1 vCPU / 1GB RAM / 25GB Disk 这类入门配置。",
-              "如果后台上传图片、音乐文件较多，磁盘和对象存储会比 CPU 更早成为关注点。",
-              "生产成熟后建议升级到至少 2GB RAM，构建和运行会更稳。",
-              "购买时确认右侧费用预估，避免误选高配或附加服务。"
-            ]
-          },
-          {
-            "title": "添加 SSH Key",
-            "items": [
-              "Authentication Method 选择 SSH Key，不建议第一次就只用密码登录。",
-              "点击 Add SSH Key，把本地 .pub 公钥完整粘贴进去。",
-              "Key Name 可以填写 blog-server、home-pc 或当前电脑名称，方便以后识别。",
-              "保存后勾选这把 key，确保新 Droplet 创建时自动写入服务器。"
-            ]
-          },
-          {
-            "title": "设置名称、标签和项目",
-            "items": [
-              "Droplet name 建议使用 blog-prod-01，名称要能看出项目、环境和编号。",
-              "Tags 可以添加 blog-prod-01、blog、production，方便后续筛选资源。",
-              "Quantity 保持 1，第一阶段不需要多台服务器。",
-              "确认 Project 选择正确，避免资源散落在不同项目里。"
-            ]
-          },
-          {
-            "title": "绑定支付方式并创建",
-            "items": [
-              "右侧如果提示 Add Payment Method and Create Droplet，需要先添加支付方式。",
-              "DigitalOcean 官方列出信用卡、借记卡、PayPal、Google Pay、Apple Pay、Alipay、Link 等方式，实际可用项以当前账号结账页为准。",
-              "支付方式添加成功后，再点击 Create Droplet 开始创建服务器。",
-              "创建过程中不要重复点击，等待控制台显示 Droplet 状态和公网 IP。"
-            ]
-          },
-          {
-            "title": "保存服务器关键信息",
-            "items": [
-              "复制服务器公网 IPv4，后续访问和 SSH 都会用到。",
-              "记录服务器名称、区域、系统、规格、创建时间和月费用。",
-              "建议把这些信息写回本项目文档，形成自己的部署资产清单。",
-              "如果后续买域名，公网 IP 会用于配置 DNS A 记录。"
-            ]
-          },
-          {
-            "title": "首次 SSH 连接验证",
-            "items": [
-              "在 PowerShell 执行 ssh root@服务器IP。",
-              "第一次连接出现 yes/no 提示时，输入 yes 并回车。",
-              "如果提示权限或密钥问题，检查 DigitalOcean 是否勾选了正确 SSH Key。",
-              "能进入 root@ubuntu 提示符，就说明购买和登录阶段完成。"
-            ]
-          },
-          {
-            "title": "购买完成后的下一步",
-            "items": [
-              "更新系统包，安装 Docker Engine 和 Docker Compose 插件。",
-              "从 GitHub 拉取 E:\\blog 对应仓库代码。",
-              "配置生产环境变量，再执行 docker compose up -d --build。",
-              "先用 http://服务器IP/、/admin/、/health 验证，再考虑域名、HTTPS、备份和监控。"
-            ]
-          }
-        ]
+        "body": []
       },
       "en-US": {
         "title": "Buying an overseas server on DigitalOcean",
         "summary": "A step-by-step checklist for preparing an SSH key, choosing a Droplet, adding payment, and saving the server IP before the first deployment.",
-        "body": [
-          "This document covers the server purchase stage only. For this blog project, start with one overseas Ubuntu server and use the public IP first; domain and HTTPS can come after the product is stable.",
-          "Begin with an entry-level plan to prove the deployment path. As the blog grows, upgrade memory, disk, storage, or traffic capacity based on real usage.",
-          "DigitalOcean screens and payment options can vary by account and region, so the checkout page is the source of truth. If local payment options are not shown, prepare an international card or a supported third-party payment method."
-        ],
-        "sections": [
-          {
-            "title": "Prepare an SSH public key",
-            "items": [
-              "Open a new PowerShell window and run ssh -V to confirm OpenSSH is available.",
-              "If no key exists, run ssh-keygen -t ed25519 -C \"blog-server\".",
-              "Show the public key with Get-Content $env:USERPROFILE\\.ssh\\id_ed25519.pub.",
-              "Copy only the .pub public key, never the private key without the .pub suffix."
-            ]
-          },
-          {
-            "title": "Open the DigitalOcean control panel",
-            "items": [
-              "Go to https://cloud.digitalocean.com/ and sign up or sign in.",
-              "For a new account, finish email verification and the required profile steps.",
-              "Open Create, choose Droplets, or go directly to https://cloud.digitalocean.com/droplets/new.",
-              "The default project is fine for the first server; split production and staging later."
-            ]
-          },
-          {
-            "title": "Choose a datacenter region",
-            "items": [
-              "Pick a region close to your target users, such as Singapore, San Francisco, New York, or Frankfurt.",
-              "For users mainly near mainland China, Singapore is often a practical first choice.",
-              "Do not spend too long optimizing latency before the first deployment is working.",
-              "Use monitoring and real traffic later to decide whether migration is needed."
-            ]
-          },
-          {
-            "title": "Choose the operating system",
-            "items": [
-              "Choose an Ubuntu LTS image, preferably the recommended long-term support version.",
-              "Because this project will be deployed with Docker, you do not need a Marketplace image.",
-              "Keep the server clean and let Docker plus docker compose manage app dependencies.",
-              "Record the OS version for later deployment notes and troubleshooting."
-            ]
-          },
-          {
-            "title": "Choose the Droplet plan",
-            "items": [
-              "For the first version, Basic / Regular / 1 vCPU / 1GB RAM / 25GB Disk is enough to validate the flow.",
-              "If you upload many images or music files, disk and object storage may matter earlier than CPU.",
-              "For a mature production setup, 2GB RAM or above is usually more comfortable.",
-              "Check the cost estimate on the right before creating the server."
-            ]
-          },
-          {
-            "title": "Add the SSH key",
-            "items": [
-              "Choose SSH Key as the authentication method.",
-              "Click Add SSH Key and paste the full .pub key from your computer.",
-              "Use a recognizable key name such as blog-server or your computer name.",
-              "Make sure the key is selected before creating the Droplet."
-            ]
-          },
-          {
-            "title": "Set name, tags, and project",
-            "items": [
-              "Use a clear Droplet name such as blog-prod-01.",
-              "Add tags such as blog-prod-01, blog, and production.",
-              "Keep Quantity at 1 for the first deployment stage.",
-              "Confirm the selected project so resources stay organized."
-            ]
-          },
-          {
-            "title": "Add payment and create",
-            "items": [
-              "If the right panel asks for a payment method, add one before creating the Droplet.",
-              "DigitalOcean lists credit cards, debit cards, PayPal, Google Pay, Apple Pay, Alipay, Link, and more; the visible checkout options are the source of truth.",
-              "After the payment method is accepted, click Create Droplet.",
-              "Wait for the Droplet status and public IP instead of clicking repeatedly."
-            ]
-          },
-          {
-            "title": "Save the server details",
-            "items": [
-              "Copy the public IPv4 address because SSH and browser checks will use it.",
-              "Record the name, region, OS, plan, creation time, and monthly estimate.",
-              "Write these details back into the project docs as your deployment inventory.",
-              "When you buy a domain later, this IP is used in the DNS A record."
-            ]
-          },
-          {
-            "title": "Verify the first SSH login",
-            "items": [
-              "Run ssh root@SERVER_IP in PowerShell.",
-              "On the first yes/no prompt, type yes and press Enter.",
-              "If authentication fails, confirm the correct SSH key was selected on DigitalOcean.",
-              "When the root@ubuntu prompt appears, purchase and login verification are done."
-            ]
-          },
-          {
-            "title": "Next after purchase",
-            "items": [
-              "Update system packages and install Docker Engine plus the Docker Compose plugin.",
-              "Clone the GitHub repository that contains E:\\blog.",
-              "Set production environment variables, then run docker compose up -d --build.",
-              "Verify http://SERVER_IP/, /admin/, and /health before adding domain, HTTPS, backups, and monitoring."
-            ]
-          }
-        ]
+        "body": []
       }
-    }
+    },
+    "htmlFile": "buy-digitalocean-server.html"
   },
   {
     "id": "exe-shortcut-workflow",
     "category": "shortcut",
-    "tags": ["windows", "exe", "shortcut"],
+    "tags": [
+      "windows",
+      "exe",
+      "shortcut"
+    ],
     "updatedAt": "2026-07-14",
     "content": {
       "zh-CN": {
         "title": "EXE 快捷操作方案",
         "summary": "整理 Windows 下常用 EXE、脚本和快捷入口的管理方式。",
-        "body": [
-          "把常用工具集中放到一个固定目录，例如 E:\\Tools，避免散落在下载目录和桌面。",
-          "给高频工具创建桌面快捷方式，并在名称前增加数字前缀，例如 01-浏览器、02-编辑器、03-终端。",
-          "如果工具需要命令行启动，可以把目录加入 Path，或者创建一个 scripts 目录存放 .cmd/.ps1 快捷脚本。",
-          "需要管理员权限的工具单独标记，避免每次打开时才发现权限不足。",
-          "后续可以在这个文档库里记录每个 EXE 的下载地址、用途、启动参数和替代方案。"
-        ]
+        "body": []
       },
       "en-US": {
         "title": "EXE shortcut workflow",
         "summary": "A Windows note for organizing EXE tools, scripts, and quick launch entries.",
-        "body": [
-          "Keep common tools in one stable folder such as E:\\Tools instead of scattering them across Downloads and Desktop.",
-          "Create desktop shortcuts for high-frequency tools and prefix names with numbers, such as 01-Browser, 02-Editor, 03-Terminal.",
-          "For command-line tools, add the folder to Path or keep .cmd/.ps1 launcher scripts in a scripts directory.",
-          "Mark tools that require administrator privileges so you do not discover permission issues at launch time.",
-          "Later, this documentation library can track each EXE's download URL, purpose, launch arguments, and alternatives."
-        ]
+        "body": []
       }
-    }
+    },
+    "htmlFile": "exe-shortcut-workflow.html"
   },
   {
     "id": "blog-work-note-rules",
     "category": "workflow",
-    "tags": ["notes", "writing", "workflow"],
+    "tags": [
+      "notes",
+      "writing",
+      "workflow"
+    ],
     "updatedAt": "2026-07-14",
     "content": {
       "zh-CN": {
         "title": "工作笔记沉淀规则",
         "summary": "把临时经验整理成可复用文档，而不是散落在聊天记录里。",
-        "body": [
-          "每篇文档只解决一个主题，例如部署、快捷操作、账号权限、接口说明，不要把多个问题混在一起。",
-          "文档标题尽量使用动作化表达，例如“如何部署项目”比“部署”更容易搜索。",
-          "每次完成一次真实操作后，把命令、报错、解决方式和下一步优化写回文档。",
-          "如果一篇文档开始变长，就拆成主文档和子文档，主文档保留流程，子文档记录细节。",
-          "后续 admin 端可以增加编辑、标签管理和版本记录，让这个模块变成个人知识库。"
-        ]
+        "body": []
       },
       "en-US": {
         "title": "Rules for durable work notes",
         "summary": "Turn temporary experience into reusable documents instead of leaving it in chat history.",
-        "body": [
-          "Each document should solve one topic, such as deployment, shortcuts, permissions, or API notes.",
-          "Use action-oriented titles. 'How to deploy the project' is easier to search than 'Deployment'.",
-          "After each real operation, write back the commands, errors, fixes, and next improvements.",
-          "When a document becomes long, split it into a main flow and detailed child notes.",
-          "Later, the admin app can add editing, tag management, and version history to turn this into a personal knowledge base."
-        ]
+        "body": []
+      }
+    },
+    "htmlFile": "blog-work-note-rules.html"
+  },
+  {
+    "id": "excel-office-shortcuts",
+    "category": "reference",
+    "tags": [
+      "excel",
+      "word",
+      "office",
+      "shortcuts"
+    ],
+    "updatedAt": "2026-07-15",
+    "htmlFile": "excel.html",
+    "content": {
+      "zh-CN": {
+        "title": "Excel / Word 快捷指令速查",
+        "summary": "把常用办公快捷键整理成可搜索、可筛选、可单独分享的 HTML 文档。",
+        "body": []
+      },
+      "en-US": {
+        "title": "Excel / Word shortcut reference",
+        "summary": "A standalone searchable HTML reference for common Excel, Word, and system shortcuts.",
+        "body": []
       }
     }
   }

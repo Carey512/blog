@@ -32,6 +32,8 @@ import type {
   CreateMusicBody,
   CreatePostBody,
   FavoriteMusic,
+  MusicCategory,
+  MusicCategoryId,
   PostCategoryId,
   PostStatus,
   UpdatePostBody,
@@ -39,7 +41,7 @@ import type {
   WorkDoc,
   WorkDocCategory,
 } from '@blog/shared';
-import { adminApi } from './api';
+import { adminApi, apiBaseUrl } from './api';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -216,6 +218,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
   const [serverState, setServerState] = useState<LoadState>('idle');
   const [apiEndpoints, setApiEndpoints] = useState<ApiEndpointInfo[]>([]);
   const [docs, setDocs] = useState<WorkDoc[]>([]);
+  const [docActionMessage, setDocActionMessage] = useState('');
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [music, setMusic] = useState<FavoriteMusic[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -236,6 +239,8 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
   const [musicTitle, setMusicTitle] = useState('My favorite track');
   const [musicArtist, setMusicArtist] = useState('Unknown Artist');
   const [musicAlbum, setMusicAlbum] = useState('');
+  const [musicCategories, setMusicCategories] = useState<MusicCategory[]>([]);
+  const [musicCategoryId, setMusicCategoryId] = useState<MusicCategoryId>('mandarin');
   const [musicCover, setMusicCover] = useState('');
   const [musicUrl, setMusicUrl] = useState('');
   const [musicFile, setMusicFile] = useState<File | null>(null);
@@ -244,19 +249,21 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
   async function loadOverview() {
     try {
       setServerState('loading');
-      const [health, postList, musicList, userList, endpointList, docList] = await Promise.all([
+      const [health, postList, musicList, userList, endpointList, docList, musicCategoryList] = await Promise.all([
         adminApi.health(),
         adminApi.posts(),
         adminApi.favoriteMusic(),
         adminApi.users(auth.token),
         adminApi.endpoints(auth.token),
         adminApi.docs(),
+        adminApi.musicCategories().catch(() => []),
       ]);
       setPosts(postList);
       setMusic(musicList);
       setUsers(userList);
       setApiEndpoints(endpointList);
       setDocs(docList);
+      setMusicCategories(musicCategoryList);
       setServerState(health.ok ? 'ready' : 'error');
     } catch {
       setServerState('error');
@@ -377,6 +384,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
         const formData = new FormData();
         formData.append('title', musicTitle);
         formData.append('artist', musicArtist);
+        formData.append('categoryId', musicCategoryId);
         formData.append('album', musicAlbum);
         formData.append('cover', musicCover);
         formData.append('file', musicFile);
@@ -386,6 +394,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
           album: musicAlbum || undefined,
           artist: musicArtist,
           audioUrl: musicUrl || undefined,
+          categoryId: musicCategoryId,
           cover: musicCover || undefined,
           platform: musicUrl ? 'External Audio' : undefined,
           title: musicTitle,
@@ -399,6 +408,47 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
       await loadOverview();
     } catch {
       setCreateMusicMessage('保存失败，请确认登录状态、后端服务和文件大小。');
+    }
+  }
+
+  async function handleCreateDoc(formData: FormData) {
+    setDocActionMessage('');
+
+    try {
+      const created = await adminApi.createDoc(formData, auth.token);
+      setDocs((currentDocs) => [created, ...currentDocs]);
+      setDocActionMessage(`已新增文档：${created.content['zh-CN'].title}`);
+      return created;
+    } catch {
+      setDocActionMessage('保存文档失败，请确认接口已部署并且账号有权限。');
+      throw new Error('Create doc failed');
+    }
+  }
+
+  async function handleUpdateDoc(docId: string, formData: FormData) {
+    setDocActionMessage('');
+
+    try {
+      const updated = await adminApi.updateDoc(docId, formData, auth.token);
+      setDocs((currentDocs) => currentDocs.map((doc) => (doc.id === updated.id ? updated : doc)));
+      setDocActionMessage(`已更新文档：${updated.content['zh-CN'].title}`);
+      return updated;
+    } catch {
+      setDocActionMessage('更新文档失败，请确认接口已部署并且账号有权限。');
+      throw new Error('Update doc failed');
+    }
+  }
+
+  async function handleDeleteDoc(doc: WorkDoc) {
+    setDocActionMessage('');
+
+    try {
+      await adminApi.deleteDoc(doc.id, auth.token);
+      setDocs((currentDocs) => currentDocs.filter((item) => item.id !== doc.id));
+      setDocActionMessage(`已删除文档：${doc.content['zh-CN'].title}`);
+    } catch {
+      setDocActionMessage('删除文档失败，请确认接口已部署并且账号有权限。');
+      throw new Error('Delete doc failed');
     }
   }
 
@@ -503,7 +553,18 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
               }
               path="/articles"
             />
-            <Route element={<DocsAdminPage docs={docs} />} path="/docs" />
+            <Route
+              element={
+                <DocsManagerPage
+                  actionMessage={docActionMessage}
+                  docs={docs}
+                  onCreateDoc={handleCreateDoc}
+                  onDeleteDoc={handleDeleteDoc}
+                  onUpdateDoc={handleUpdateDoc}
+                />
+              }
+              path="/docs"
+            />
             <Route
               element={
                 <MusicAdminPage
@@ -511,6 +572,8 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
                   music={music}
                   musicAlbum={musicAlbum}
                   musicArtist={musicArtist}
+                  musicCategories={musicCategories}
+                  musicCategoryId={musicCategoryId}
                   musicCover={musicCover}
                   musicFile={musicFile}
                   musicTitle={musicTitle}
@@ -518,6 +581,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
                   onCreateMusic={handleCreateMusic}
                   setMusicAlbum={setMusicAlbum}
                   setMusicArtist={setMusicArtist}
+                  setMusicCategoryId={setMusicCategoryId}
                   setMusicCover={setMusicCover}
                   setMusicFile={setMusicFile}
                   setMusicTitle={setMusicTitle}
@@ -1058,6 +1122,394 @@ function getPostStatusLabel(status: PostStatus) {
 
 const adminDocCategories: Array<WorkDocCategory | 'all'> = ['all', 'deployment', 'shortcut', 'workflow', 'reference'];
 
+type DocFormState = {
+  category: WorkDocCategory;
+  file: File | null;
+  summaryEn: string;
+  summaryZh: string;
+  tags: string;
+  textEn: string;
+  textZh: string;
+  titleEn: string;
+  titleZh: string;
+  updatedAt: string;
+};
+
+const docCategoryItems: Array<{ label: string; value: WorkDocCategory }> = [
+  { label: '部署', value: 'deployment' },
+  { label: '快捷操作', value: 'shortcut' },
+  { label: '工作流', value: 'workflow' },
+  { label: '参考', value: 'reference' },
+];
+
+function DocsManagerPage({
+  actionMessage,
+  docs,
+  onCreateDoc,
+  onDeleteDoc,
+  onUpdateDoc,
+}: {
+  actionMessage: string;
+  docs: WorkDoc[];
+  onCreateDoc: (formData: FormData) => Promise<WorkDoc>;
+  onDeleteDoc: (doc: WorkDoc) => Promise<void>;
+  onUpdateDoc: (docId: string, formData: FormData) => Promise<WorkDoc>;
+}) {
+  const [category, setCategory] = useState<WorkDocCategory | 'all'>('all');
+  const [form, setForm] = useState<DocFormState>(() => createBlankDocForm());
+  const [mode, setMode] = useState<'create' | 'edit'>('edit');
+  const [query, setQuery] = useState('');
+  const [selectedDocId, setSelectedDocId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const filteredDocs = useMemo(
+    () =>
+      docs.filter((doc) => {
+        const normalizedQuery = query.trim().toLowerCase();
+        const text = [
+          doc.id,
+          doc.category,
+          ...doc.tags,
+          doc.content['zh-CN'].title,
+          doc.content['zh-CN'].summary,
+          doc.content['en-US'].title,
+        ].join(' ').toLowerCase();
+        const matchesQuery = normalizedQuery ? text.includes(normalizedQuery) : true;
+        const matchesCategory = category === 'all' || doc.category === category;
+
+        return matchesQuery && matchesCategory;
+      }),
+    [category, docs, query],
+  );
+  const selectedDoc = docs.find((doc) => doc.id === selectedDocId) ?? filteredDocs[0] ?? docs[0] ?? null;
+
+  useEffect(() => {
+    if (mode === 'create') {
+      return;
+    }
+
+    if (selectedDoc) {
+      setForm(createDocFormFromDoc(selectedDoc));
+    }
+  }, [mode, selectedDoc?.id]);
+
+  function startCreate() {
+    setMode('create');
+    setSelectedDocId('');
+    setForm(createBlankDocForm());
+  }
+
+  function selectDoc(doc: WorkDoc) {
+    setMode('edit');
+    setSelectedDocId(doc.id);
+    setForm(createDocFormFromDoc(doc));
+  }
+
+  function updateForm<Key extends keyof DocFormState>(key: Key, value: DocFormState[Key]) {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const formData = buildDocFormData(form);
+
+      if (mode === 'create') {
+        const created = await onCreateDoc(formData);
+        setSelectedDocId(created.id);
+        setMode('edit');
+        setForm(createDocFormFromDoc(created));
+      } else if (selectedDoc) {
+        const updated = await onUpdateDoc(selectedDoc.id, formData);
+        setSelectedDocId(updated.id);
+        setForm(createDocFormFromDoc(updated));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedDoc) {
+      return;
+    }
+
+    if (!window.confirm(`确认删除文档：${selectedDoc.content['zh-CN'].title}？`)) {
+      return;
+    }
+
+    await onDeleteDoc(selectedDoc);
+    setSelectedDocId('');
+    setMode('edit');
+    setForm(createBlankDocForm());
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <ApiSummaryItem label="文档总数" value={docs.length} />
+        <ApiSummaryItem label="当前筛选" value={filteredDocs.length} />
+        <ApiSummaryItem label="分类数" value={new Set(docs.map((doc) => doc.category)).size} />
+      </div>
+
+      <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="rounded-lg border border-line bg-panel p-3 shadow-panel">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">笔记文档</h2>
+              <p className="text-sm text-slate-500">通过接口新增、编辑、删除文档，HTML 文件由 API 自动保存。</p>
+            </div>
+            <button
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-semibold text-white transition hover:bg-ink/90"
+              onClick={startCreate}
+              type="button"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              新增
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px]">
+            <label className="relative min-w-0">
+              <span className="sr-only">搜索文档</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜索标题、分类、标签"
+                value={query}
+              />
+            </label>
+            <select
+              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              onChange={(event) => setCategory(event.target.value as WorkDocCategory | 'all')}
+              value={category}
+            >
+              <option value="all">全部分类</option>
+              {docCategoryItems.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-3 overflow-hidden rounded-lg border border-line">
+            {filteredDocs.length ? (
+              filteredDocs.map((doc) => (
+                <button
+                  className={`grid w-full gap-1 border-b border-line px-3 py-2 text-left last:border-b-0 transition hover:bg-slate-50 ${
+                    mode === 'edit' && selectedDoc?.id === doc.id ? 'bg-slate-50' : ''
+                  }`}
+                  key={doc.id}
+                  onClick={() => selectDoc(doc)}
+                  type="button"
+                >
+                  <span className="truncate text-sm font-semibold">{doc.content['zh-CN'].title}</span>
+                  <span className="truncate text-xs text-slate-500">{doc.content['zh-CN'].summary}</span>
+                  <span className="text-xs text-slate-400">
+                    {getDocCategoryName(doc.category)} / {doc.updatedAt}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-sm text-slate-500">暂无匹配文档</div>
+            )}
+          </div>
+        </div>
+
+        <aside className="rounded-lg border border-line bg-panel p-3 shadow-panel xl:sticky xl:top-4 xl:self-start">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">
+                {mode === 'create' ? 'Create' : 'Edit'}
+              </p>
+              <h3 className="text-lg font-semibold">{mode === 'create' ? '新增文档' : '编辑文档'}</h3>
+            </div>
+            {mode === 'edit' && selectedDoc?.htmlFile ? (
+              <a
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-brand transition hover:bg-slate-50"
+                href={adminApi.docHtmlUrl(selectedDoc.htmlFile)}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <Eye className="h-4 w-4" aria-hidden="true" />
+                预览
+              </a>
+            ) : null}
+          </div>
+
+          <form className="mt-3 space-y-3" onSubmit={handleSubmit}>
+            <AdminCompactField label="中文标题" onChange={(value) => updateForm('titleZh', value)} value={form.titleZh} />
+            <AdminCompactTextarea label="中文摘要" onChange={(value) => updateForm('summaryZh', value)} rows={3} value={form.summaryZh} />
+            <AdminCompactField label="英文标题" onChange={(value) => updateForm('titleEn', value)} value={form.titleEn} />
+            <AdminCompactTextarea label="英文摘要" onChange={(value) => updateForm('summaryEn', value)} rows={3} value={form.summaryEn} />
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700">
+                分类
+                <select
+                  className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  onChange={(event) => updateForm('category', event.target.value as WorkDocCategory)}
+                  value={form.category}
+                >
+                  {docCategoryItems.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <AdminCompactField label="时间" onChange={(value) => updateForm('updatedAt', value)} value={form.updatedAt} />
+            </div>
+
+            <AdminCompactField label="标签（逗号分隔）" onChange={(value) => updateForm('tags', value)} value={form.tags} />
+            <AdminCompactTextarea label="中文文本（无 HTML 文件时自动生成页面）" onChange={(value) => updateForm('textZh', value)} rows={5} value={form.textZh} />
+            <AdminCompactTextarea label="英文文本" onChange={(value) => updateForm('textEn', value)} rows={4} value={form.textEn} />
+
+            <label className="block text-sm font-medium text-slate-700">
+              HTML 文件
+              <input
+                accept=".html,.htm,text/html"
+                className="mt-1 block w-full rounded-lg border border-line bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
+                onChange={(event) => updateForm('file', event.target.files?.[0] ?? null)}
+                type="file"
+              />
+            </label>
+
+            {actionMessage ? <p className="text-sm font-medium text-brand">{actionMessage}</p> : null}
+
+            <div className="flex gap-2">
+              <button
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:opacity-60"
+                disabled={submitting}
+                type="submit"
+              >
+                {mode === 'create' ? <Upload className="h-4 w-4" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
+                {submitting ? '保存中...' : mode === 'create' ? '提交保存' : '保存修改'}
+              </button>
+              {mode === 'edit' && selectedDoc ? (
+                <button
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-coral px-3 text-sm font-semibold text-coral transition hover:bg-coral hover:text-white"
+                  onClick={handleDelete}
+                  type="button"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  删除
+                </button>
+              ) : null}
+            </div>
+          </form>
+        </aside>
+      </section>
+    </section>
+  );
+}
+
+function createBlankDocForm(): DocFormState {
+  return {
+    category: 'reference',
+    file: null,
+    summaryEn: '',
+    summaryZh: '',
+    tags: '',
+    textEn: '',
+    textZh: '',
+    titleEn: '',
+    titleZh: '',
+    updatedAt: new Date().toISOString().slice(0, 10),
+  };
+}
+
+function createDocFormFromDoc(doc: WorkDoc): DocFormState {
+  return {
+    category: doc.category,
+    file: null,
+    summaryEn: doc.content['en-US'].summary,
+    summaryZh: doc.content['zh-CN'].summary,
+    tags: doc.tags.join(', '),
+    textEn: doc.content['en-US'].body.join('\n\n'),
+    textZh: doc.content['zh-CN'].body.join('\n\n'),
+    titleEn: doc.content['en-US'].title,
+    titleZh: doc.content['zh-CN'].title,
+    updatedAt: doc.updatedAt,
+  };
+}
+
+function buildDocFormData(form: DocFormState) {
+  const formData = new FormData();
+
+  formData.append('titleZh', form.titleZh);
+  formData.append('summaryZh', form.summaryZh);
+  formData.append('titleEn', form.titleEn);
+  formData.append('summaryEn', form.summaryEn);
+  formData.append('category', form.category);
+  formData.append('updatedAt', form.updatedAt);
+  formData.append('tags', form.tags);
+  formData.append('textZh', form.textZh);
+  formData.append('textEn', form.textEn);
+
+  if (form.file) {
+    formData.append('file', form.file);
+  }
+
+  return formData;
+}
+
+function getDocCategoryName(category: WorkDocCategory) {
+  return docCategoryItems.find((item) => item.value === category)?.label ?? category;
+}
+
+function AdminCompactField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="block text-sm font-medium text-slate-700">
+      {label}
+      <input
+        className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function AdminCompactTextarea({
+  label,
+  onChange,
+  rows,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  rows: number;
+  value: string;
+}) {
+  return (
+    <label className="block text-sm font-medium text-slate-700">
+      {label}
+      <textarea
+        className="mt-1 w-full resize-y rounded-lg border border-line px-3 py-2 text-sm leading-6 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        onChange={(event) => onChange(event.target.value)}
+        rows={rows}
+        value={value}
+      />
+    </label>
+  );
+}
+
 function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
   const [category, setCategory] = useState<WorkDocCategory | 'all'>('all');
   const [query, setQuery] = useState('');
@@ -1166,10 +1618,21 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
                 ))}
               </div>
               <div className="mt-5 space-y-3 border-t border-line pt-4 text-sm leading-7 text-slate-700">
+                {selectedDoc.htmlFile ? (
+                  <a
+                    className="flex items-center justify-between gap-3 rounded-lg border border-line bg-slate-50 p-3 text-sm font-semibold text-brand transition hover:bg-slate-100"
+                    href={adminApi.docHtmlUrl(selectedDoc.htmlFile)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <span className="min-w-0 truncate">{selectedDoc.htmlFile}</span>
+                    <LinkIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  </a>
+                ) : null}
                 {selectedDoc.content['zh-CN'].body.map((paragraph) => (
                   <p key={paragraph}>{paragraph}</p>
                 ))}
-                {selectedDoc.content['zh-CN'].sections?.length ? (
+                {!selectedDoc.htmlFile && selectedDoc.content['zh-CN'].sections?.length ? (
                   <div className="grid gap-2 pt-1">
                     {selectedDoc.content['zh-CN'].sections.map((section, index) => (
                       <section className="rounded-lg border border-line bg-slate-50 p-3" key={section.title}>
@@ -1210,6 +1673,22 @@ function getAdminDocCategoryLabel(category: WorkDocCategory | 'all') {
     workflow: '工作流',
     reference: '参考',
   }[category];
+}
+
+function getAdminMusicCategoryLabel(categoryId: MusicCategoryId | undefined, categories: MusicCategory[]) {
+  const normalizedCategoryId = categoryId ?? 'personal';
+  const category = categories.find((item) => item.id === normalizedCategoryId);
+
+  if (category) {
+    return category.name['zh-CN'];
+  }
+
+  return {
+    instrumental: '纯音乐',
+    live: '现场',
+    mandarin: '中文',
+    personal: '私藏',
+  }[normalizedCategoryId];
 }
 
 function UsersAdminPage({
@@ -1315,6 +1794,8 @@ function MusicAdminPage({
   music,
   musicAlbum,
   musicArtist,
+  musicCategories,
+  musicCategoryId,
   musicCover,
   musicFile,
   musicTitle,
@@ -1322,6 +1803,7 @@ function MusicAdminPage({
   onCreateMusic,
   setMusicAlbum,
   setMusicArtist,
+  setMusicCategoryId,
   setMusicCover,
   setMusicFile,
   setMusicTitle,
@@ -1331,6 +1813,8 @@ function MusicAdminPage({
   music: FavoriteMusic[];
   musicAlbum: string;
   musicArtist: string;
+  musicCategories: MusicCategory[];
+  musicCategoryId: MusicCategoryId;
   musicCover: string;
   musicFile: File | null;
   musicTitle: string;
@@ -1338,6 +1822,7 @@ function MusicAdminPage({
   onCreateMusic: (event: FormEvent<HTMLFormElement>) => void;
   setMusicAlbum: (value: string) => void;
   setMusicArtist: (value: string) => void;
+  setMusicCategoryId: (value: MusicCategoryId) => void;
   setMusicCover: (value: string) => void;
   setMusicFile: (value: File | null) => void;
   setMusicTitle: (value: string) => void;
@@ -1355,9 +1840,14 @@ function MusicAdminPage({
                   <h3 className="font-semibold">{track.title}</h3>
                   <p className="mt-1 text-sm text-slate-500">{track.artist}</p>
                 </div>
-                <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
-                  {track.source}
-                </span>
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  <span className="rounded-md bg-mint/10 px-2 py-1 text-xs font-semibold text-mint">
+                    {getAdminMusicCategoryLabel(track.categoryId, musicCategories)}
+                  </span>
+                  <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                    {track.source}
+                  </span>
+                </div>
               </div>
               {track.audioUrl ? (
                 <audio className="mt-3 w-full" controls preload="none" src={resolveMediaUrl(track.audioUrl)} />
@@ -1381,6 +1871,26 @@ function MusicAdminPage({
         </div>
         <TextField label="歌曲名" onChange={setMusicTitle} value={musicTitle} />
         <TextField label="歌手" onChange={setMusicArtist} value={musicArtist} />
+        <label className="mt-4 block text-sm font-medium">
+          分类
+          <select
+            className="mt-2 h-10 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-mint"
+            onChange={(event) => setMusicCategoryId(event.target.value as MusicCategoryId)}
+            value={musicCategoryId}
+          >
+            {musicCategories.length ? (
+              musicCategories.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name['zh-CN']}
+                </option>
+              ))
+            ) : (
+              <option value={musicCategoryId}>
+                {getAdminMusicCategoryLabel(musicCategoryId, musicCategories)}
+              </option>
+            )}
+          </select>
+        </label>
         <TextField label="专辑" onChange={setMusicAlbum} value={musicAlbum} />
         <TextField label="封面 URL" onChange={setMusicCover} value={musicCover} />
         <TextField label="外部音频 URL" onChange={setMusicUrl} value={musicUrl} />
@@ -1681,7 +2191,7 @@ function resolveMediaUrl(path: string) {
     return path;
   }
 
-  return `http://localhost:4000${path}`;
+  return `${apiBaseUrl}${path}`;
 }
 
 export default App;

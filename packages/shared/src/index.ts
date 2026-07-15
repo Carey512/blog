@@ -8,6 +8,8 @@ export type PostStatus = 'draft' | 'published' | 'review';
 
 export type WorkDocCategory = 'deployment' | 'shortcut' | 'workflow' | 'reference';
 
+export type MusicCategoryId = 'mandarin' | 'instrumental' | 'live' | 'personal';
+
 export type User = {
   id: string;
   name: string;
@@ -17,6 +19,11 @@ export type User = {
 
 export type Category = {
   id: PostCategoryId;
+  name: Record<Locale, string>;
+};
+
+export type MusicCategory = {
+  id: MusicCategoryId;
   name: Record<Locale, string>;
 };
 
@@ -37,8 +44,19 @@ export type WorkDoc = {
   category: WorkDocCategory;
   tags: string[];
   updatedAt: string;
+  htmlFile?: string;
   content: Record<Locale, LocalizedWorkDocContent>;
 };
+
+export type CreateWorkDocBody = {
+  category: WorkDocCategory;
+  tags?: string[];
+  updatedAt?: string;
+  html?: string;
+  content: Record<Locale, LocalizedWorkDocContent>;
+};
+
+export type UpdateWorkDocBody = CreateWorkDocBody;
 
 export type LocalizedPostContent = {
   title: string;
@@ -73,6 +91,7 @@ export type UpdatePostBody = CreatePostBody;
 
 export type FavoriteMusic = {
   id: string;
+  categoryId: MusicCategoryId;
   title: string;
   artist: string;
   album?: string;
@@ -87,6 +106,7 @@ export type FavoriteMusic = {
 export type CreateMusicBody = {
   title: string;
   artist: string;
+  categoryId?: MusicCategoryId;
   album?: string;
   cover?: string;
   audioUrl?: string;

@@ -5,13 +5,15 @@ import type {
   CreateMusicBody,
   CreatePostBody,
   FavoriteMusic,
+  MusicCategory,
+  MusicCategoryId,
   UpdatePostBody,
   User,
   WorkDoc,
   WorkDocCategory,
 } from '@blog/shared';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:4000';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const { headers, ...restOptions } = options ?? {};
@@ -51,6 +53,10 @@ function authorizationHeader(token: string) {
 }
 
 export const adminApi = {
+  docHtmlUrl(htmlFile: string) {
+    return `${apiBaseUrl}/docs-html/${encodeURIComponent(htmlFile)}`;
+  },
+
   health() {
     return request<{ ok: boolean; service: string; time: string }>('/health');
   },
@@ -101,6 +107,33 @@ export const adminApi = {
     return request<WorkDoc[]>(`/api/docs${query ? `?${query}` : ''}`);
   },
 
+  createDoc(formData: FormData, token: string) {
+    return uploadRequest<WorkDoc>('/api/docs', formData, token);
+  },
+
+  updateDoc(docId: string, formData: FormData, token: string) {
+    const response = fetch(`${apiBaseUrl}/api/docs/${docId}`, {
+      body: formData,
+      headers: authorizationHeader(token),
+      method: 'PUT',
+    });
+
+    return response.then((result) => {
+      if (!result.ok) {
+        throw new Error(`Request failed: ${result.status}`);
+      }
+
+      return result.json() as Promise<WorkDoc>;
+    });
+  },
+
+  deleteDoc(docId: string, token: string) {
+    return request<{ deletedDoc: WorkDoc; ok: boolean }>(`/api/docs/${docId}`, {
+      headers: authorizationHeader(token),
+      method: 'DELETE',
+    });
+  },
+
   createPost(body: CreatePostBody, token: string) {
     return request<ApiPost>('/api/posts', {
       body: JSON.stringify(body),
@@ -124,8 +157,23 @@ export const adminApi = {
     });
   },
 
-  favoriteMusic() {
-    return request<FavoriteMusic[]>('/api/music');
+  favoriteMusic(params?: { category?: MusicCategoryId | 'all'; query?: string }) {
+    const search = new URLSearchParams();
+
+    if (params?.query?.trim()) {
+      search.set('q', params.query.trim());
+    }
+
+    if (params?.category && params.category !== 'all') {
+      search.set('category', params.category);
+    }
+
+    const query = search.toString();
+    return request<FavoriteMusic[]>(`/api/music${query ? `?${query}` : ''}`);
+  },
+
+  musicCategories() {
+    return request<MusicCategory[]>('/api/music/categories');
   },
 
   createMusic(body: CreateMusicBody, token: string) {

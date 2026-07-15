@@ -1,30 +1,46 @@
 import {
-  Disc3,
   ExternalLink,
   Headphones,
   Music2,
   Pause,
   Play,
   Search,
-  X,
+  Upload,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject } from 'react';
-import type { FavoriteMusic } from '@blog/shared';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import type { FavoriteMusic, Locale, MusicCategory, MusicCategoryId } from '@blog/shared';
+import { ModulePageHeader } from '../components/ModulePageHeader';
+import { formatTrackLine, MusicFloatingPlayer } from '../components/MusicFloatingPlayer';
+import { UploadDialog } from '../components/UploadDialog';
+import { useAuth } from '../context/auth';
 import { usePreferences } from '../context/preferences';
 import { messages } from '../i18n';
 import { musicService } from '../services/musicService';
 
 export function MusicPage() {
+  const { isAuthenticated, token } = useAuth();
   const { locale } = usePreferences();
   const t = messages[locale];
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [activeTrack, setActiveTrack] = useState<FavoriteMusic | null>(null);
+  const [album, setAlbum] = useState('');
+  const [artist, setArtist] = useState('');
+  const [category, setCategory] = useState<MusicCategoryId | 'all'>('all');
+  const [cover, setCover] = useState('');
   const [error, setError] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+  const [musicCategories, setMusicCategories] = useState<MusicCategory[]>([]);
+  const [musicCategoryId, setMusicCategoryId] = useState<MusicCategoryId>('mandarin');
   const [searchInput, setSearchInput] = useState('');
+  const [showUpload, setShowUpload] = useState(false);
   const [submittedQuery, setSubmittedQuery] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [title, setTitle] = useState('');
   const [tracks, setTracks] = useState<FavoriteMusic[]>([]);
+  const [url, setUrl] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -33,7 +49,7 @@ export function MusicPage() {
       try {
         setLoading(true);
         setError('');
-        const nextTracks = await musicService.getMusic(submittedQuery);
+        const nextTracks = await musicService.getMusic({ category, query: submittedQuery });
 
         if (alive) {
           setTracks(nextTracks);
@@ -55,7 +71,31 @@ export function MusicPage() {
     return () => {
       alive = false;
     };
-  }, [submittedQuery]);
+  }, [category, submittedQuery]);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadMusicCategories() {
+      try {
+        const nextCategories = await musicService.getMusicCategories();
+
+        if (alive) {
+          setMusicCategories(nextCategories);
+        }
+      } catch {
+        if (alive) {
+          setMusicCategories([]);
+        }
+      }
+    }
+
+    void loadMusicCategories();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -82,6 +122,55 @@ export function MusicPage() {
     setSubmittedQuery(searchInput);
   }
 
+  async function handleUploadMusic(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage('');
+    setSubmitting(true);
+
+    try {
+      let created: FavoriteMusic;
+
+      if (file) {
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('artist', artist);
+        formData.append('categoryId', musicCategoryId);
+        formData.append('album', album);
+        formData.append('cover', cover);
+        formData.append('file', file);
+        created = await musicService.uploadMusic(formData, token);
+      } else {
+        created = await musicService.createMusic(
+          {
+            album: album || undefined,
+            artist,
+            audioUrl: url || undefined,
+            categoryId: musicCategoryId,
+            cover: cover || undefined,
+            platform: url ? 'External Audio' : undefined,
+            title,
+            url: url || undefined,
+          },
+          token,
+        );
+      }
+
+      setTracks((currentTracks) => [created, ...currentTracks]);
+      setMessage(`已保存音乐：${created.title}`);
+      setAlbum('');
+      setArtist('');
+      setCover('');
+      setFile(null);
+      setTitle('');
+      setUrl('');
+      setShowUpload(false);
+    } catch {
+      setMessage('保存失败，请确认已登录、接口已部署，并选择音频文件或填写音频链接。');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function playTrack(track: FavoriteMusic) {
     setActiveTrack(track);
     setIsPlaying(true);
@@ -94,43 +183,28 @@ export function MusicPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pb-28 pt-5 sm:px-5 lg:px-6">
-      <section className="grid gap-5 border-b border-border pb-6 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-            {t.nav.music}
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold leading-tight text-foreground sm:text-5xl">
-            {t.musicTitle}
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">{t.musicIntro}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface p-4 shadow-line">
-          <span className="block text-3xl font-semibold text-primary">{playableCount}</span>
-          <span className="mt-1 block text-sm text-muted">{t.musicPlayable}</span>
-        </div>
-      </section>
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pb-28 pt-4 sm:px-5 lg:px-6">
+      <ModulePageHeader
+        count={playableCount}
+        countLabel={t.musicPlayable}
+        eyebrow={t.nav.music}
+        intro={t.musicIntro}
+        title={t.musicTitle}
+      />
 
-      <form className="flex max-w-xl gap-2" onSubmit={handleSearch}>
-        <label className="relative block min-w-0 flex-1">
-          <span className="sr-only">{t.musicSearchLabel}</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <input
-            aria-label={t.musicSearchLabel}
-            className="h-11 w-full rounded-lg border border-border bg-surface pl-10 pr-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder={t.musicSearchPlaceholder}
-            value={searchInput}
-          />
-        </label>
-        <button
-          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
-          type="submit"
-        >
-          <Search className="h-4 w-4" aria-hidden="true" />
-          {t.musicSearchAction}
-        </button>
-      </form>
+      <section className="space-y-4">
+        <MusicFilterBar
+          category={category}
+          categories={musicCategories}
+          isAuthenticated={isAuthenticated}
+          locale={locale}
+          onCategoryChange={setCategory}
+          onSearch={handleSearch}
+          onSearchInputChange={setSearchInput}
+          onUploadClick={() => setShowUpload(true)}
+          searchInput={searchInput}
+        />
+      {message ? <p className="text-sm font-medium text-primary">{message}</p> : null}
 
       {loading || error || !tracks.length ? (
         <div className="rounded-lg border border-dashed border-border bg-surface px-6 py-10 text-center text-muted">
@@ -208,9 +282,10 @@ export function MusicPage() {
           })}
         </section>
       )}
+      </section>
 
       {activeTrack ? (
-        <FloatingPlayer
+        <MusicFloatingPlayer
           audioRef={audioRef}
           isPlaying={isPlaying}
           onClose={closePlayer}
@@ -220,79 +295,211 @@ export function MusicPage() {
           track={activeTrack}
         />
       ) : null}
+
+      <UploadDialog onClose={() => setShowUpload(false)} open={showUpload} title="上传音乐">
+        {isAuthenticated ? (
+          <form className="grid gap-3" onSubmit={handleUploadMusic}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MusicModalField label="歌曲标题" onChange={setTitle} required value={title} />
+              <MusicModalField label="歌手" onChange={setArtist} required value={artist} />
+              <label className="block text-sm font-medium text-foreground">
+                {locale === 'zh-CN' ? '\u5206\u7c7b' : 'Category'}
+                <select
+                  className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  onChange={(event) => setMusicCategoryId(event.target.value as MusicCategoryId)}
+                  value={musicCategoryId}
+                >
+                  {musicCategories.length ? (
+                    musicCategories.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name[locale]}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={musicCategoryId}>
+                      {getMusicCategoryLabel(musicCategoryId, musicCategories, locale)}
+                    </option>
+                  )}
+                </select>
+              </label>
+              <MusicModalField label="专辑" onChange={setAlbum} value={album} />
+              <MusicModalField label="封面 URL" onChange={setCover} value={cover} />
+              <MusicModalField label="外部音频 URL" onChange={setUrl} value={url} />
+              <label className="block text-sm font-medium text-foreground">
+                本地音频文件
+                <input
+                  accept="audio/*"
+                  className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
+                  onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                  type="file"
+                />
+              </label>
+            </div>
+            <div className="rounded-lg bg-surface-muted p-3 text-sm leading-6 text-muted">
+              优先上传本地音频；如果不选择文件，则使用外部音频 URL 保存。
+            </div>
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+              disabled={submitting}
+              type="submit"
+            >
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              {submitting ? '保存中...' : '保存音乐'}
+            </button>
+          </form>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border bg-background p-6 text-center">
+            <p className="text-sm text-muted">上传音乐需要先登录。</p>
+            <a
+              className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
+              href="/login?redirect=/music"
+            >
+              去登录
+            </a>
+          </div>
+        )}
+      </UploadDialog>
     </main>
   );
 }
 
-function FloatingPlayer({
-  audioRef,
-  isPlaying,
-  onClose,
-  onEnded,
-  onPause,
-  onPlay,
-  track,
+function MusicFilterBar({
+  category,
+  categories,
+  isAuthenticated,
+  locale,
+  onCategoryChange,
+  onSearch,
+  onSearchInputChange,
+  onUploadClick,
+  searchInput,
 }: {
-  audioRef: MutableRefObject<HTMLAudioElement | null>;
-  isPlaying: boolean;
-  onClose: () => void;
-  onEnded: () => void;
-  onPause: () => void;
-  onPlay: () => void;
-  track: FavoriteMusic;
+  category: MusicCategoryId | 'all';
+  categories: MusicCategory[];
+  isAuthenticated: boolean;
+  locale: Locale;
+  onCategoryChange: (category: MusicCategoryId | 'all') => void;
+  onSearch: (event: FormEvent<HTMLFormElement>) => void;
+  onSearchInputChange: (value: string) => void;
+  onUploadClick: () => void;
+  searchInput: string;
 }) {
-  const { locale } = usePreferences();
   const t = messages[locale];
-  const audioUrl = musicService.resolveAudioUrl(track);
+  const categoryItems: Array<{ id: MusicCategoryId | 'all'; label: string }> = [
+    { id: 'all', label: t.all },
+    ...categories.map((item) => ({ id: item.id, label: item.name[locale] })),
+  ];
 
   return (
-    <aside className="fixed inset-x-3 bottom-3 z-40 rounded-lg border border-border bg-surface/95 p-3 text-foreground shadow-soft backdrop-blur sm:inset-x-auto sm:right-6 sm:w-[430px]">
-      <div className="flex items-center gap-3">
-        <div
-          className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-surface-muted animate-[spin_8s_linear_infinite]"
-          style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
-        >
-          {track.cover ? (
-            <img alt={track.title} className="h-full w-full rounded-full object-cover" src={track.cover} />
-          ) : (
-            <Disc3 className="h-9 w-9 text-primary" aria-hidden="true" />
-          )}
-          <span className="absolute h-4 w-4 rounded-full border border-border bg-surface" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">{t.musicNowPlaying}</p>
-          <h2 className="mt-1 truncate text-base font-semibold">{track.title}</h2>
-          <p className="truncate text-xs text-muted">{formatTrackLine(track)}</p>
-        </div>
-
+    <div className="flex items-center gap-2 overflow-hidden rounded-lg border border-border bg-surface p-2 shadow-line">
+      <form
+        className="flex min-w-[13rem] max-w-[30rem] flex-[0_0_52%] gap-2 sm:flex-[0_0_27rem]"
+        onSubmit={onSearch}
+      >
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">{t.musicSearchLabel}</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <input
+            aria-label={t.musicSearchLabel}
+            className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+            onChange={(event) => onSearchInputChange(event.target.value)}
+            placeholder={t.musicSearchPlaceholder}
+            value={searchInput}
+          />
+        </label>
         <button
-          aria-label={t.musicClosePlayer}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-surface-muted text-muted transition hover:text-foreground"
-          onClick={onClose}
-          type="button"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+          type="submit"
         >
-          <X className="h-4 w-4" aria-hidden="true" />
+          <Search className="h-4 w-4" aria-hidden="true" />
+          {t.musicSearchAction}
         </button>
+      </form>
+
+      <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">
+        {categoryItems.map((item) => (
+          <button
+            className={`min-h-10 shrink-0 rounded-lg border px-3 text-sm font-medium transition ${
+              category === item.id
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-background text-muted hover:text-foreground'
+            }`}
+            key={item.id}
+            onClick={() => onCategoryChange(item.id)}
+            type="button"
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      <audio
-        autoPlay
-        className="mt-3 h-10 w-full"
-        controls
-        onEnded={onEnded}
-        onPause={onPause}
-        onPlay={onPlay}
-        ref={audioRef}
-        src={audioUrl}
-      />
-    </aside>
+      <button
+        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+        onClick={onUploadClick}
+        type="button"
+      >
+        <Upload className="h-4 w-4" aria-hidden="true" />
+        {isAuthenticated
+          ? locale === 'zh-CN'
+            ? '\u4e0a\u4f20\u97f3\u4e50'
+            : 'Upload music'
+          : locale === 'zh-CN'
+            ? '\u767b\u5f55\u4e0a\u4f20'
+            : 'Log in to upload'}
+      </button>
+    </div>
   );
 }
 
-function formatTrackLine(track: FavoriteMusic) {
-  const album = track.album?.trim().replace(/^\u300a/, '').replace(/\u300b$/, '');
-  const albumLabel = album ? `\u300a${album}\u300b` : '';
+function getMusicCategoryLabel(
+  categoryId: MusicCategoryId,
+  categories: MusicCategory[],
+  locale: Locale,
+) {
+  const category = categories.find((item) => item.id === categoryId);
 
-  return [track.artist, albumLabel].filter(Boolean).join(' \u00b7 ');
+  if (category) {
+    return category.name[locale];
+  }
+
+  const fallback: Record<Locale, Record<MusicCategoryId, string>> = {
+    'zh-CN': {
+      instrumental: '\u7eaf\u97f3\u4e50',
+      live: '\u73b0\u573a',
+      mandarin: '\u4e2d\u6587',
+      personal: '\u79c1\u85cf',
+    },
+    'en-US': {
+      instrumental: 'Instrumental',
+      live: 'Live',
+      mandarin: 'Chinese',
+      personal: 'Personal',
+    },
+  };
+
+  return fallback[locale][categoryId];
+}
+
+function MusicModalField({
+  label,
+  onChange,
+  required,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  value: string;
+}) {
+  return (
+    <label className="block text-sm font-medium text-foreground">
+      {label}
+      <input
+        className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        onChange={(event) => onChange(event.target.value)}
+        required={required}
+        value={value}
+      />
+    </label>
+  );
 }
