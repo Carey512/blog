@@ -876,6 +876,7 @@ async function saveUsers() {
 }
 
 await server.register(cors, {
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   origin: true,
 });
 

@@ -342,10 +342,6 @@ function AdminConsole({
       return;
     }
 
-    if (!window.confirm(`确认删除用户 ${user.name} (${user.email}) 吗？`)) {
-      return;
-    }
-
     try {
       await adminApi.deleteUser(auth.token, user.id);
       const userList = await adminApi.users(auth.token, userSearch);
@@ -353,6 +349,7 @@ function AdminConsole({
       setDeleteUserMessage(`已删除用户：${user.name}`);
     } catch {
       setDeleteUserMessage('删除失败，请确认账号权限和后端服务状态。');
+      throw new Error('Delete user failed');
     }
   }
 
@@ -789,6 +786,57 @@ function DashboardPage({
   );
 }
 
+function DeleteConfirmDialog({
+  body,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+  pending,
+  title,
+}: {
+  body: string;
+  confirmLabel: string;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+  pending: boolean;
+  title: string;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/45 px-4 py-6">
+      <section className="w-full max-w-md rounded-lg border border-line bg-panel p-5 shadow-panel">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-coral/10 text-coral">
+            <Trash2 className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{body}</p>
+          </div>
+        </div>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={pending}
+            onClick={onCancel}
+            type="button"
+          >
+            取消
+          </button>
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-coral px-4 text-sm font-semibold text-white transition hover:bg-coral/90 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={pending}
+            onClick={() => void onConfirm()}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {pending ? '删除中...' : confirmLabel}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ArticlesAdminPage({
   actionMessage,
   createMessage,
@@ -831,6 +879,8 @@ function ArticlesAdminPage({
   const [categoryFilter, setCategoryFilter] = useState<PostCategoryId | 'all'>(
     'all',
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ApiPost | null>(null);
   const [query, setQuery] = useState('');
   const [selectedPost, setSelectedPost] = useState<ApiPost | null>(null);
   const [showCreatePostForm, setShowCreatePostForm] = useState(false);
@@ -967,7 +1017,7 @@ function ArticlesAdminPage({
             {filteredPosts.length ? (
               filteredPosts.map(post => (
                 <div
-                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_92px_92px_96px_88px] lg:items-center"
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_92px_92px_96px_88px_88px] lg:items-center"
                   key={post.id}
                 >
                   <div className="min-w-0">
@@ -994,6 +1044,14 @@ function ArticlesAdminPage({
                   >
                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                     详情
+                  </button>
+                  <button
+                    className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-coral/30 px-2.5 text-xs font-semibold text-coral transition hover:bg-coral/10"
+                    onClick={() => setDeleteTarget(post)}
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    删除
                   </button>
                 </div>
               ))
@@ -1081,10 +1139,6 @@ function ArticlesAdminPage({
       {selectedPost ? (
         <ArticleDetailModal
           onClose={() => setSelectedPost(null)}
-          onDelete={async post => {
-            await onDeletePost(post);
-            setSelectedPost(null);
-          }}
           onUpdate={async (postId, body) => {
             const updated = await onUpdatePost(postId, body);
             setSelectedPost(updated);
@@ -1093,24 +1147,50 @@ function ArticlesAdminPage({
           post={selectedPost}
         />
       ) : null}
+
+      {deleteTarget ? (
+        <DeleteConfirmDialog
+          body={`确认删除文章《${deleteTarget.content['zh-CN'].title}》吗？删除后前台文章列表也会同步移除。`}
+          confirmLabel="删除文章"
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            const postToDelete = deleteTarget;
+            if (!postToDelete) {
+              return;
+            }
+
+            setDeletePending(true);
+            try {
+              await onDeletePost(postToDelete);
+              if (selectedPost?.id === postToDelete.id) {
+                setSelectedPost(null);
+              }
+              setDeleteTarget(null);
+            } catch {
+              return;
+            } finally {
+              setDeletePending(false);
+            }
+          }}
+          pending={deletePending}
+          title="删除文章"
+        />
+      ) : null}
     </section>
   );
 }
 
 function ArticleDetailModal({
   onClose,
-  onDelete,
   onUpdate,
   post,
 }: {
   onClose: () => void;
-  onDelete: (post: ApiPost) => Promise<void>;
   onUpdate: (postId: string, body: UpdatePostBody) => Promise<ApiPost>;
   post: ApiPost;
 }) {
   const [categoryId, setCategoryId] = useState<PostCategoryId>(post.categoryId);
   const [cover, setCover] = useState(post.cover);
-  const [deletePending, setDeletePending] = useState(false);
   const [excerptEn, setExcerptEn] = useState(post.content['en-US'].excerpt);
   const [excerptZh, setExcerptZh] = useState(post.content['zh-CN'].excerpt);
   const [message, setMessage] = useState('');
@@ -1158,23 +1238,6 @@ function ArticleDetailModal({
       setMessage('保存失败，请稍后再试。');
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleDelete() {
-    setMessage('');
-
-    if (!window.confirm(`确认删除文章《${post.content['zh-CN'].title}》吗？`)) {
-      return;
-    }
-
-    setDeletePending(true);
-
-    try {
-      await onDelete(post);
-    } catch {
-      setMessage('删除失败，请稍后再试。');
-      setDeletePending(false);
     }
   }
 
@@ -1294,19 +1357,10 @@ function ArticleDetailModal({
           </aside>
         </div>
 
-        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-between">
-          <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-coral/30 px-4 text-sm font-semibold text-coral transition hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={deletePending || saving}
-            onClick={handleDelete}
-            type="button"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-            {deletePending ? '删除中...' : '删除文章'}
-          </button>
+        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-end">
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={saving || deletePending}
+            disabled={saving}
             type="submit"
           >
             <Save className="h-4 w-4" aria-hidden="true" />
@@ -1438,6 +1492,8 @@ function DocsManagerPage({
   const [createForm, setCreateForm] = useState<DocFormState>(() =>
     createBlankDocForm(),
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<WorkDoc | null>(null);
   const [query, setQuery] = useState('');
   const [selectedDoc, setSelectedDoc] = useState<WorkDoc | null>(null);
   const [showCreateDocForm, setShowCreateDocForm] = useState(false);
@@ -1564,7 +1620,7 @@ function DocsManagerPage({
             {filteredDocs.length ? (
               filteredDocs.map(doc => (
                 <div
-                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_96px_88px] lg:items-center"
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_96px_88px_88px] lg:items-center"
                   key={doc.id}
                 >
                   <div className="min-w-0">
@@ -1588,6 +1644,14 @@ function DocsManagerPage({
                   >
                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                     详情
+                  </button>
+                  <button
+                    className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-coral/30 px-2.5 text-xs font-semibold text-coral transition hover:bg-coral/10"
+                    onClick={() => setDeleteTarget(doc)}
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    删除
                   </button>
                 </div>
               ))
@@ -1716,15 +1780,40 @@ function DocsManagerPage({
         <DocDetailModal
           doc={selectedDoc}
           onClose={() => setSelectedDoc(null)}
-          onDelete={async doc => {
-            await onDeleteDoc(doc);
-            setSelectedDoc(null);
-          }}
           onUpdate={async (docId, formData) => {
             const updated = await onUpdateDoc(docId, formData);
             setSelectedDoc(updated);
             return updated;
           }}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <DeleteConfirmDialog
+          body={`确认删除文档《${deleteTarget.content['zh-CN'].title}》吗？关联的 HTML 文件会在没有其他文档使用时一起清理。`}
+          confirmLabel="删除文档"
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            const docToDelete = deleteTarget;
+            if (!docToDelete) {
+              return;
+            }
+
+            setDeletePending(true);
+            try {
+              await onDeleteDoc(docToDelete);
+              if (selectedDoc?.id === docToDelete.id) {
+                setSelectedDoc(null);
+              }
+              setDeleteTarget(null);
+            } catch {
+              return;
+            } finally {
+              setDeletePending(false);
+            }
+          }}
+          pending={deletePending}
+          title="删除文档"
         />
       ) : null}
     </section>
@@ -1734,15 +1823,12 @@ function DocsManagerPage({
 function DocDetailModal({
   doc,
   onClose,
-  onDelete,
   onUpdate,
 }: {
   doc: WorkDoc;
   onClose: () => void;
-  onDelete: (doc: WorkDoc) => Promise<void>;
   onUpdate: (docId: string, formData: FormData) => Promise<WorkDoc>;
 }) {
-  const [deletePending, setDeletePending] = useState(false);
   const [form, setForm] = useState<DocFormState>(() =>
     createDocFormFromDoc(doc),
   );
@@ -1772,23 +1858,6 @@ function DocDetailModal({
       setMessage('保存失败，请稍后再试。');
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleDelete() {
-    setMessage('');
-
-    if (!window.confirm(`确认删除文档《${doc.content['zh-CN'].title}》吗？`)) {
-      return;
-    }
-
-    setDeletePending(true);
-
-    try {
-      await onDelete(doc);
-    } catch {
-      setMessage('删除失败，请稍后再试。');
-      setDeletePending(false);
     }
   }
 
@@ -1918,19 +1987,10 @@ function DocDetailModal({
           </aside>
         </div>
 
-        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-between">
-          <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-coral/30 px-4 text-sm font-semibold text-coral transition hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={deletePending || saving}
-            onClick={handleDelete}
-            type="button"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-            {deletePending ? '删除中...' : '删除文档'}
-          </button>
+        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-end">
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={saving || deletePending}
+            disabled={saving}
             type="submit"
           >
             <Save className="h-4 w-4" aria-hidden="true" />
@@ -2285,12 +2345,15 @@ function UsersAdminPage({
 }: {
   currentUserId: string;
   deleteMessage: string;
-  onDeleteUser: (user: User) => void;
+  onDeleteUser: (user: User) => Promise<void>;
   onSearch: (event?: FormEvent<HTMLFormElement>) => void;
   search: string;
   setSearch: (value: string) => void;
   users: User[];
 }) {
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+
   return (
     <section className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -2368,7 +2431,7 @@ function UsersAdminPage({
                 ) : (
                   <button
                     className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-lg border border-coral/30 px-3 text-xs font-semibold text-coral transition hover:bg-coral/10"
-                    onClick={() => onDeleteUser(user)}
+                    onClick={() => setDeleteTarget(user)}
                     type="button"
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -2384,6 +2447,32 @@ function UsersAdminPage({
           )}
         </div>
       </section>
+
+      {deleteTarget ? (
+        <DeleteConfirmDialog
+          body={`确认删除用户 ${deleteTarget.name}（${deleteTarget.email}）吗？`}
+          confirmLabel="删除用户"
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            const userToDelete = deleteTarget;
+            if (!userToDelete) {
+              return;
+            }
+
+            setDeletePending(true);
+            try {
+              await onDeleteUser(userToDelete);
+              setDeleteTarget(null);
+            } catch {
+              return;
+            } finally {
+              setDeletePending(false);
+            }
+          }}
+          pending={deletePending}
+          title="删除用户"
+        />
+      ) : null}
     </section>
   );
 }
@@ -2439,6 +2528,8 @@ function MusicAdminPage({
   const [categoryFilter, setCategoryFilter] = useState<MusicCategoryId | 'all'>(
     'all',
   );
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<FavoriteMusic | null>(null);
   const [query, setQuery] = useState('');
   const [selectedTrack, setSelectedTrack] = useState<FavoriteMusic | null>(
     null,
@@ -2562,7 +2653,7 @@ function MusicAdminPage({
             {filteredMusic.length ? (
               filteredMusic.map(track => (
                 <div
-                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_86px_92px_88px] lg:items-center"
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_86px_92px_88px_88px] lg:items-center"
                   key={track.id}
                 >
                   <div className="min-w-0">
@@ -2592,6 +2683,14 @@ function MusicAdminPage({
                   >
                     <Eye className="h-3.5 w-3.5" aria-hidden="true" />
                     详情
+                  </button>
+                  <button
+                    className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-coral/30 px-2.5 text-xs font-semibold text-coral transition hover:bg-coral/10"
+                    onClick={() => setDeleteTarget(track)}
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    删除
                   </button>
                 </div>
               ))
@@ -2702,16 +2801,41 @@ function MusicAdminPage({
         <MusicDetailModal
           categories={musicCategories}
           onClose={() => setSelectedTrack(null)}
-          onDelete={async track => {
-            await onDeleteMusic(track);
-            setSelectedTrack(null);
-          }}
           onUpdate={async (musicId, body) => {
             const updated = await onUpdateMusic(musicId, body);
             setSelectedTrack(updated);
             return updated;
           }}
           track={selectedTrack}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <DeleteConfirmDialog
+          body={`确认删除音乐《${deleteTarget.title}》吗？前台音乐列表会同步移除。`}
+          confirmLabel="删除音乐"
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            const trackToDelete = deleteTarget;
+            if (!trackToDelete) {
+              return;
+            }
+
+            setDeletePending(true);
+            try {
+              await onDeleteMusic(trackToDelete);
+              if (selectedTrack?.id === trackToDelete.id) {
+                setSelectedTrack(null);
+              }
+              setDeleteTarget(null);
+            } catch {
+              return;
+            } finally {
+              setDeletePending(false);
+            }
+          }}
+          pending={deletePending}
+          title="删除音乐"
         />
       ) : null}
     </section>
@@ -2721,13 +2845,11 @@ function MusicAdminPage({
 function MusicDetailModal({
   categories,
   onClose,
-  onDelete,
   onUpdate,
   track,
 }: {
   categories: MusicCategory[];
   onClose: () => void;
-  onDelete: (track: FavoriteMusic) => Promise<void>;
   onUpdate: (musicId: string, body: CreateMusicBody) => Promise<FavoriteMusic>;
   track: FavoriteMusic;
 }) {
@@ -2738,7 +2860,6 @@ function MusicDetailModal({
     track.categoryId,
   );
   const [cover, setCover] = useState(track.cover ?? '');
-  const [deletePending, setDeletePending] = useState(false);
   const [message, setMessage] = useState('');
   const [platform, setPlatform] = useState(track.platform ?? '');
   const [saving, setSaving] = useState(false);
@@ -2774,23 +2895,6 @@ function MusicDetailModal({
       setMessage('保存失败，请稍后再试。');
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleDelete() {
-    setMessage('');
-
-    if (!window.confirm(`确认删除音乐《${track.title}》吗？`)) {
-      return;
-    }
-
-    setDeletePending(true);
-
-    try {
-      await onDelete(track);
-    } catch {
-      setMessage('删除失败，请稍后再试。');
-      setDeletePending(false);
     }
   }
 
@@ -2912,19 +3016,10 @@ function MusicDetailModal({
           </aside>
         </div>
 
-        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-between">
-          <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-coral/30 px-4 text-sm font-semibold text-coral transition hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={deletePending || saving}
-            onClick={handleDelete}
-            type="button"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-            {deletePending ? '删除中...' : '删除音乐'}
-          </button>
+        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-end">
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={saving || deletePending}
+            disabled={saving}
             type="submit"
           >
             <Save className="h-4 w-4" aria-hidden="true" />
