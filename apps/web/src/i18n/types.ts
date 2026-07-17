@@ -1,6 +1,6 @@
 import type { Locale, PostCategoryId } from '@blog/shared';
 
-export type RouteLabelKey = 'home' | 'articles' | 'music' | 'docs' | 'about';
+export type RouteLabelKey = 'home' | 'articles' | 'music' | 'docs' | 'tools' | 'about';
 
 export type LocaleOption = {
   id: Locale;
@@ -64,6 +64,46 @@ export type LocaleMessages = {
   docsSearchLabel: string;
   docsSearchPlaceholder: string;
   docsTitle: string;
+  docsDownloadHtml: string;
+  docsDownloadError: string;
+  toolsTitle: string;
+  toolsIntro: string;
+  toolsCount: string;
+  timestampToolTitle: string;
+  timestampToolIntro: string;
+  timestampCurrentTitle: string;
+  timestampInputLabel: string;
+  timestampInputPlaceholder: string;
+  timestampModeLabel: string;
+  timestampModeAuto: string;
+  timestampModeSeconds: string;
+  timestampModeMilliseconds: string;
+  timestampModeDate: string;
+  timestampNowAction: string;
+  timestampClearAction: string;
+  timestampSwitchUnit: string;
+  timestampStop: string;
+  timestampStart: string;
+  timestampSingleConversion: string;
+  timestampBatchConversion: string;
+  timestampToDateTitle: string;
+  dateToTimestampTitle: string;
+  timestampConvert: string;
+  timestampResultPlaceholder: string;
+  timestampSecondSuffix: string;
+  timestampMillisecondSuffix: string;
+  timestampBatchInput: string;
+  timestampBatchPlaceholder: string;
+  timestampBatchResult: string;
+  timestampDetectedLabel: string;
+  timestampInvalid: string;
+  timestampLocalTime: string;
+  timestampUtcTime: string;
+  timestampBeijingTime: string;
+  timestampUnixSeconds: string;
+  timestampUnixMilliseconds: string;
+  timestampCopy: string;
+  timestampCopied: string;
   playMusic: string;
   musicClosePlayer: string;
   musicNowPlaying: string;

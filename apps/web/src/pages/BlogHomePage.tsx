@@ -2,11 +2,13 @@ import {
   ArrowRight,
   ArrowUpRight,
   BookOpenText,
+  CalendarClock,
   FileText,
   Music2,
   Newspaper,
   Pause,
   Play,
+  Wrench,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -208,6 +210,18 @@ export function BlogHomePage() {
             ))}
           </div>
         )}
+      </HomeModule>
+
+      <HomeModule
+        eyebrow={locale === 'zh-CN' ? '效率工具' : 'Utilities'}
+        Icon={Wrench}
+        moreLabel={locale === 'zh-CN' ? '更多工具' : 'More tools'}
+        title={t.nav.tools}
+        to="/tools"
+      >
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          <HomeToolCard locale={locale} />
+        </div>
       </HomeModule>
 
       {activeTrack ? (
@@ -437,6 +451,32 @@ function HomeDocCard({ doc, locale }: { doc: WorkDoc; locale: Locale }) {
           <span className="rounded-md bg-surface-muted px-2 py-1">
             {doc.category}
           </span>
+        </div>
+      </Link>
+    </article>
+  );
+}
+
+function HomeToolCard({ locale }: { locale: Locale }) {
+  const t = messages[locale];
+
+  return (
+    <article className="rounded-lg border border-border bg-surface p-3 shadow-line transition hover:-translate-y-0.5 hover:shadow-soft">
+      <Link className="flex min-h-32 flex-col justify-between" to="/tools">
+        <div>
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <CalendarClock className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <h3 className="mt-3 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-foreground">
+            {t.timestampToolTitle}
+          </h3>
+          <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">
+            {t.timestampToolIntro}
+          </p>
+        </div>
+        <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+          {locale === 'zh-CN' ? '打开工具' : 'Open tool'}
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
         </div>
       </Link>
     </article>

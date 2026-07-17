@@ -33,6 +33,10 @@ export const docsService = {
     return `${apiBaseUrl}/docs-html/${encodeURIComponent(htmlFile)}`;
   },
 
+  getDocHtmlDownloadUrl(htmlFile: string) {
+    return `${apiBaseUrl}/docs-html/${encodeURIComponent(htmlFile)}/download`;
+  },
+
   getDocs(params?: { category?: WorkDocCategory | 'all'; query?: string }) {
     const search = new URLSearchParams();
 

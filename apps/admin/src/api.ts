@@ -17,12 +17,13 @@ export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const { headers, ...restOptions } = options ?? {};
+  const requestHeaders: HeadersInit = {
+    ...(restOptions.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    ...(headers as Record<string, string> | undefined),
+  };
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...restOptions,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
+    headers: requestHeaders,
   });
 
   if (!response.ok) {
@@ -186,5 +187,20 @@ export const adminApi = {
 
   uploadMusic(formData: FormData, token: string) {
     return uploadRequest<FavoriteMusic>('/api/music/upload', formData, token);
+  },
+
+  updateMusic(musicId: string, body: CreateMusicBody, token: string) {
+    return request<FavoriteMusic>(`/api/music/${musicId}`, {
+      body: JSON.stringify(body),
+      headers: authorizationHeader(token),
+      method: 'PUT',
+    });
+  },
+
+  deleteMusic(musicId: string, token: string) {
+    return request<{ deletedMusic: FavoriteMusic; ok: boolean }>(`/api/music/${musicId}`, {
+      headers: authorizationHeader(token),
+      method: 'DELETE',
+    });
   },
 };

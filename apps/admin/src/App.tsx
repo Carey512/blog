@@ -23,7 +23,13 @@ import {
   X,
 } from 'lucide-react';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import type {
   ApiAudience,
   ApiEndpointInfo,
@@ -61,7 +67,10 @@ const modules = [
 
 function App() {
   return (
-    <BrowserRouter basename={routerBasename} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+    <BrowserRouter
+      basename={routerBasename}
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+    >
       <AdminAuthGate />
     </BrowserRouter>
   );
@@ -73,7 +82,9 @@ function resolveRouterBasename(baseUrl: string) {
 }
 
 function AdminAuthGate() {
-  const [auth, setAuth] = useState<AuthLoginResponse | null>(() => readStoredAuth());
+  const [auth, setAuth] = useState<AuthLoginResponse | null>(() =>
+    readStoredAuth(),
+  );
   const [captcha, setCaptcha] = useState(() => createCaptcha());
   const [captchaInput, setCaptchaInput] = useState('');
   const [email, setEmail] = useState('admin@example.com');
@@ -163,26 +174,39 @@ function AdminLoginPage({
 }) {
   return (
     <main className="grid min-h-screen place-items-center bg-canvas px-4 py-10 text-ink">
-      <form className="w-full max-w-md rounded-lg border border-line bg-panel p-6 shadow-panel" onSubmit={onLogin}>
+      <form
+        className="w-full max-w-md rounded-lg border border-line bg-panel p-6 shadow-panel"
+        onSubmit={onLogin}
+      >
         <div className="flex items-center gap-3">
           <span className="grid h-12 w-12 place-items-center rounded-lg bg-brand text-white">
             <ShieldCheck className="h-6 w-6" aria-hidden="true" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-brand">Blog Admin</p>
+            <p className="text-sm font-semibold text-brand">Admin</p>
             <h1 className="text-2xl font-semibold">管理后台登录</h1>
           </div>
         </div>
 
-        <TextField label="账号邮箱" onChange={onEmailChange} type="email" value={email} />
-        <TextField label="密码" onChange={onPasswordChange} type="password" value={password} />
+        <TextField
+          label="账号邮箱"
+          onChange={onEmailChange}
+          type="email"
+          value={email}
+        />
+        <TextField
+          label="密码"
+          onChange={onPasswordChange}
+          type="password"
+          value={password}
+        />
 
         <label className="mt-4 block text-sm font-medium">
           验证码
           <div className="mt-2 grid grid-cols-[1fr_120px_44px] gap-2">
             <input
               className="h-11 rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={(event) => onCaptchaChange(event.target.value)}
+              onChange={event => onCaptchaChange(event.target.value)}
               value={captchaInput}
             />
             <span className="grid h-11 place-items-center rounded-lg bg-slate-100 px-3 text-sm font-semibold text-ink">
@@ -199,7 +223,9 @@ function AdminLoginPage({
           </div>
         </label>
 
-        {error ? <p className="mt-3 text-sm font-medium text-coral">{error}</p> : null}
+        {error ? (
+          <p className="mt-3 text-sm font-medium text-coral">{error}</p>
+        ) : null}
 
         <button
           className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-ink px-4 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
@@ -214,7 +240,13 @@ function AdminLoginPage({
   );
 }
 
-function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: () => void }) {
+function AdminConsole({
+  auth,
+  onLogout,
+}: {
+  auth: AuthLoginResponse;
+  onLogout: () => void;
+}) {
   const [serverState, setServerState] = useState<LoadState>('idle');
   const [apiEndpoints, setApiEndpoints] = useState<ApiEndpointInfo[]>([]);
   const [docs, setDocs] = useState<WorkDoc[]>([]);
@@ -227,7 +259,9 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
 
   const [postTitleZh, setPostTitleZh] = useState('后台发布的新文章');
   const [postTitleEn, setPostTitleEn] = useState('A new post from admin');
-  const [postExcerptZh, setPostExcerptZh] = useState('这篇文章来自管理后台，发布后会出现在前台文章列表。');
+  const [postExcerptZh, setPostExcerptZh] = useState(
+    '这篇文章来自管理后台，发布后会出现在前台文章列表。',
+  );
   const [postExcerptEn, setPostExcerptEn] = useState(
     'This post comes from the admin app and appears on the public site after publishing.',
   );
@@ -240,16 +274,26 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
   const [musicArtist, setMusicArtist] = useState('Unknown Artist');
   const [musicAlbum, setMusicAlbum] = useState('');
   const [musicCategories, setMusicCategories] = useState<MusicCategory[]>([]);
-  const [musicCategoryId, setMusicCategoryId] = useState<MusicCategoryId>('mandarin');
+  const [musicCategoryId, setMusicCategoryId] =
+    useState<MusicCategoryId>('mandarin');
   const [musicCover, setMusicCover] = useState('');
   const [musicUrl, setMusicUrl] = useState('');
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [createMusicMessage, setCreateMusicMessage] = useState('');
+  const [musicActionMessage, setMusicActionMessage] = useState('');
 
   async function loadOverview() {
     try {
       setServerState('loading');
-      const [health, postList, musicList, userList, endpointList, docList, musicCategoryList] = await Promise.all([
+      const [
+        health,
+        postList,
+        musicList,
+        userList,
+        endpointList,
+        docList,
+        musicCategoryList,
+      ] = await Promise.all([
         adminApi.health(),
         adminApi.posts(),
         adminApi.favoriteMusic(),
@@ -275,7 +319,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
   }, []);
 
   const publishedCount = useMemo(
-    () => posts.filter((post) => post.status === 'published').length,
+    () => posts.filter(post => post.status === 'published').length,
     [posts],
   );
 
@@ -351,7 +395,9 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
 
     try {
       const updated = await adminApi.updatePost(postId, body, auth.token);
-      setPosts((currentPosts) => currentPosts.map((post) => (post.id === updated.id ? updated : post)));
+      setPosts(currentPosts =>
+        currentPosts.map(post => (post.id === updated.id ? updated : post)),
+      );
       setPostActionMessage(`已更新文章：${updated.content['zh-CN'].title}`);
       return updated;
     } catch {
@@ -365,7 +411,9 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
 
     try {
       await adminApi.deletePost(post.id, auth.token);
-      setPosts((currentPosts) => currentPosts.filter((item) => item.id !== post.id));
+      setPosts(currentPosts =>
+        currentPosts.filter(item => item.id !== post.id),
+      );
       setPostActionMessage(`已删除文章：${post.content['zh-CN'].title}`);
     } catch {
       setPostActionMessage('删除失败，请确认管理员权限和后端服务状态。');
@@ -376,6 +424,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
   async function handleCreateMusic(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setCreateMusicMessage('');
+    setMusicActionMessage('');
 
     try {
       let created: FavoriteMusic;
@@ -411,12 +460,43 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
     }
   }
 
+  async function handleUpdateMusic(musicId: string, body: CreateMusicBody) {
+    setMusicActionMessage('');
+
+    try {
+      const updated = await adminApi.updateMusic(musicId, body, auth.token);
+      setMusic(currentMusic =>
+        currentMusic.map(track => (track.id === updated.id ? updated : track)),
+      );
+      setMusicActionMessage(`已更新音乐：${updated.title}`);
+      return updated;
+    } catch {
+      setMusicActionMessage('更新音乐失败，请确认管理员权限和后端服务状态。');
+      throw new Error('Update music failed');
+    }
+  }
+
+  async function handleDeleteMusic(track: FavoriteMusic) {
+    setMusicActionMessage('');
+
+    try {
+      await adminApi.deleteMusic(track.id, auth.token);
+      setMusic(currentMusic =>
+        currentMusic.filter(item => item.id !== track.id),
+      );
+      setMusicActionMessage(`已删除音乐：${track.title}`);
+    } catch {
+      setMusicActionMessage('删除音乐失败，请确认管理员权限和后端服务状态。');
+      throw new Error('Delete music failed');
+    }
+  }
+
   async function handleCreateDoc(formData: FormData) {
     setDocActionMessage('');
 
     try {
       const created = await adminApi.createDoc(formData, auth.token);
-      setDocs((currentDocs) => [created, ...currentDocs]);
+      setDocs(currentDocs => [created, ...currentDocs]);
       setDocActionMessage(`已新增文档：${created.content['zh-CN'].title}`);
       return created;
     } catch {
@@ -430,7 +510,9 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
 
     try {
       const updated = await adminApi.updateDoc(docId, formData, auth.token);
-      setDocs((currentDocs) => currentDocs.map((doc) => (doc.id === updated.id ? updated : doc)));
+      setDocs(currentDocs =>
+        currentDocs.map(doc => (doc.id === updated.id ? updated : doc)),
+      );
       setDocActionMessage(`已更新文档：${updated.content['zh-CN'].title}`);
       return updated;
     } catch {
@@ -444,7 +526,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
 
     try {
       await adminApi.deleteDoc(doc.id, auth.token);
-      setDocs((currentDocs) => currentDocs.filter((item) => item.id !== doc.id));
+      setDocs(currentDocs => currentDocs.filter(item => item.id !== doc.id));
       setDocActionMessage(`已删除文档：${doc.content['zh-CN'].title}`);
     } catch {
       setDocActionMessage('删除文档失败，请确认接口已部署并且账号有权限。');
@@ -460,7 +542,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
             <ShieldCheck className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
-            <p className="font-semibold">Blog Admin</p>
+            <p className="font-semibold">Admin</p>
             <p className="text-xs text-slate-500">{auth.user.name}</p>
           </div>
         </div>
@@ -470,7 +552,9 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
             <NavLink
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-2 transition ${
-                  isActive ? 'bg-slate-100 text-ink' : 'hover:bg-slate-100 hover:text-ink'
+                  isActive
+                    ? 'bg-slate-100 text-ink'
+                    : 'hover:bg-slate-100 hover:text-ink'
                 }`
               }
               end={path === '/'}
@@ -511,7 +595,9 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
               <NavLink
                 className={({ isActive }) =>
                   `whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-semibold ${
-                    isActive ? 'border-brand bg-brand text-white' : 'border-line bg-panel text-slate-600'
+                    isActive
+                      ? 'border-brand bg-brand text-white'
+                      : 'border-line bg-panel text-slate-600'
                   }`
                 }
                 end={path === '/'}
@@ -525,7 +611,13 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
 
           <Routes>
             <Route
-              element={<DashboardPage music={music} posts={posts} publishedCount={publishedCount} />}
+              element={
+                <DashboardPage
+                  music={music}
+                  posts={posts}
+                  publishedCount={publishedCount}
+                />
+              }
               path="/"
             />
             <Route
@@ -568,6 +660,7 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
             <Route
               element={
                 <MusicAdminPage
+                  actionMessage={musicActionMessage}
                   createMessage={createMusicMessage}
                   music={music}
                   musicAlbum={musicAlbum}
@@ -579,6 +672,8 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
                   musicTitle={musicTitle}
                   musicUrl={musicUrl}
                   onCreateMusic={handleCreateMusic}
+                  onDeleteMusic={handleDeleteMusic}
+                  onUpdateMusic={handleUpdateMusic}
                   setMusicAlbum={setMusicAlbum}
                   setMusicArtist={setMusicArtist}
                   setMusicCategoryId={setMusicCategoryId}
@@ -604,9 +699,28 @@ function AdminConsole({ auth, onLogout }: { auth: AuthLoginResponse; onLogout: (
               }
               path="/users"
             />
-            <Route element={<ApiConfigPage endpoints={apiEndpoints} />} path="/api-config" />
-            <Route element={<PlaceholderPage title="知识源" body="后续接入 RSS、GitHub、技术资讯源和定时抓取。" />} path="/knowledge" />
-            <Route element={<PlaceholderPage title="分享配置" body="后续接入分享卡片、公开分享页和朋友圈素材配置。" />} path="/sharing" />
+            <Route
+              element={<ApiConfigPage endpoints={apiEndpoints} />}
+              path="/api-config"
+            />
+            <Route
+              element={
+                <PlaceholderPage
+                  title="知识源"
+                  body="后续接入 RSS、GitHub、技术资讯源和定时抓取。"
+                />
+              }
+              path="/knowledge"
+            />
+            <Route
+              element={
+                <PlaceholderPage
+                  title="分享配置"
+                  body="后续接入分享卡片、公开分享页和朋友圈素材配置。"
+                />
+              }
+              path="/sharing"
+            />
           </Routes>
         </div>
       </main>
@@ -626,17 +740,49 @@ function DashboardPage({
   return (
     <section className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard color="brand" icon={<BookOpenCheck />} label="文章总数" value={posts.length} />
-        <MetricCard color="mint" icon={<Newspaper />} label="已发布" value={publishedCount} />
-        <MetricCard color="amber" icon={<Megaphone />} label="待处理" value={posts.length - publishedCount} />
-        <MetricCard color="coral" icon={<Headphones />} label="音乐总数" value={music.length} />
+        <MetricCard
+          color="brand"
+          icon={<BookOpenCheck />}
+          label="文章总数"
+          value={posts.length}
+        />
+        <MetricCard
+          color="mint"
+          icon={<Newspaper />}
+          label="已发布"
+          value={publishedCount}
+        />
+        <MetricCard
+          color="amber"
+          icon={<Megaphone />}
+          label="待处理"
+          value={posts.length - publishedCount}
+        />
+        <MetricCard
+          color="coral"
+          icon={<Headphones />}
+          label="音乐总数"
+          value={music.length}
+        />
       </div>
       <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
         <h2 className="text-lg font-semibold">模块入口</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <ModuleHint icon={<Newspaper />} title="文章" body="发布后进入 web 文章路由。" />
-          <ModuleHint icon={<Music2 />} title="音乐" body="上传后进入 web 音乐路由并可播放。" />
-          <ModuleHint icon={<Share2 />} title="分享" body="后续生成公开分享页与素材。" />
+          <ModuleHint
+            icon={<Newspaper />}
+            title="文章"
+            body="发布后进入 web 文章路由。"
+          />
+          <ModuleHint
+            icon={<Music2 />}
+            title="音乐"
+            body="上传后进入 web 音乐路由并可播放。"
+          />
+          <ModuleHint
+            icon={<Share2 />}
+            title="分享"
+            body="后续生成公开分享页与素材。"
+          />
         </div>
       </section>
     </section>
@@ -682,182 +828,260 @@ function ArticlesAdminPage({
   setPostTitleEn: (value: string) => void;
   setPostTitleZh: (value: string) => void;
 }) {
-  const [categoryFilter, setCategoryFilter] = useState<PostCategoryId | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<PostCategoryId | 'all'>(
+    'all',
+  );
   const [query, setQuery] = useState('');
   const [selectedPost, setSelectedPost] = useState<ApiPost | null>(null);
   const [showCreatePostForm, setShowCreatePostForm] = useState(false);
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'open-source' | 'personal'>('all');
+  const [sourceFilter, setSourceFilter] = useState<
+    'all' | 'open-source' | 'personal'
+  >('all');
   const [statusFilter, setStatusFilter] = useState<PostStatus | 'all'>('all');
-  const openSourceCount = useMemo(() => posts.filter(isOpenSourcePost).length, [posts]);
+  const openSourceCount = useMemo(
+    () => posts.filter(isOpenSourcePost).length,
+    [posts],
+  );
   const personalUploadCount = posts.length - openSourceCount;
   const filteredPosts = useMemo(
     () =>
-      posts.filter((post) => {
+      posts.filter(post => {
         const translated = post.content['zh-CN'];
         const normalizedQuery = query.trim().toLowerCase();
         const matchesQuery = normalizedQuery
-          ? [post.id, translated.title, translated.excerpt, translated.author, post.content['en-US'].title]
-              .some((value) => value.toLowerCase().includes(normalizedQuery))
+          ? [
+              post.id,
+              translated.title,
+              translated.excerpt,
+              translated.author,
+              post.content['en-US'].title,
+            ].some(value => value.toLowerCase().includes(normalizedQuery))
           : true;
-        const matchesStatus = statusFilter === 'all' || post.status === statusFilter;
-        const matchesCategory = categoryFilter === 'all' || post.categoryId === categoryFilter;
+        const matchesStatus =
+          statusFilter === 'all' || post.status === statusFilter;
+        const matchesCategory =
+          categoryFilter === 'all' || post.categoryId === categoryFilter;
         const matchesSource =
           sourceFilter === 'all' ||
-          (sourceFilter === 'open-source' ? isOpenSourcePost(post) : !isOpenSourcePost(post));
+          (sourceFilter === 'open-source'
+            ? isOpenSourcePost(post)
+            : !isOpenSourcePost(post));
 
-        return matchesQuery && matchesStatus && matchesCategory && matchesSource;
+        return (
+          matchesQuery && matchesStatus && matchesCategory && matchesSource
+        );
       }),
     [categoryFilter, posts, query, sourceFilter, statusFilter],
   );
 
   return (
     <section className="space-y-4">
-      <div className={showCreatePostForm ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]' : 'grid gap-4'}>
-      <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">文章管理</h2>
-            <p className="mt-1 text-sm text-slate-500">筛选、查看详情、编辑和删除文章。</p>
+      <div
+        className={
+          showCreatePostForm
+            ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]'
+            : 'grid gap-4'
+        }
+      >
+        <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">文章管理</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                筛选、查看详情、编辑和删除文章。
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[28rem]">
+              <ApiSummaryItem label="文章总数" value={posts.length} />
+              <ApiSummaryItem label="开源数" value={openSourceCount} />
+              <ApiSummaryItem label="个人上传数" value={personalUploadCount} />
+            </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[28rem]">
-            <ApiSummaryItem label="文章总数" value={posts.length} />
-            <ApiSummaryItem label="开源数" value={openSourceCount} />
-            <ApiSummaryItem label="个人上传数" value={personalUploadCount} />
-          </div>
-        </div>
 
-        <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px_140px_140px_112px]">
-          <label className="relative min-w-0">
-            <span className="sr-only">搜索文章</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索标题、摘要、作者或 ID"
-              value={query}
-            />
-          </label>
-          <select
-            className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            onChange={(event) => setStatusFilter(event.target.value as PostStatus | 'all')}
-            value={statusFilter}
-          >
-            <option value="all">全部状态</option>
-            <option value="published">已发布</option>
-            <option value="review">审核中</option>
-            <option value="draft">草稿</option>
-          </select>
-          <select
-            className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            onChange={(event) => setCategoryFilter(event.target.value as PostCategoryId | 'all')}
-            value={categoryFilter}
-          >
-            <option value="all">全部分类</option>
-            <option value="notes">随笔</option>
-            <option value="design">设计</option>
-            <option value="engineering">工程</option>
-            <option value="culture">文化</option>
-          </select>
-          <select
-            className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            onChange={(event) => setSourceFilter(event.target.value as 'all' | 'open-source' | 'personal')}
-            value={sourceFilter}
-          >
-            <option value="all">全部来源</option>
-            <option value="open-source">开源</option>
-            <option value="personal">个人上传</option>
-          </select>
-          <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
-            onClick={() => setShowCreatePostForm((current) => !current)}
-            type="button"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            {showCreatePostForm ? '收起' : '新增'}
-          </button>
-        </div>
-
-        {actionMessage ? <p className="mt-3 text-sm font-medium text-brand">{actionMessage}</p> : null}
-
-        <div className="mt-4 overflow-hidden rounded-lg border border-line">
-          {filteredPosts.length ? (
-            filteredPosts.map((post) => (
-              <div
-                className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_92px_92px_96px_88px] lg:items-center"
-                key={post.id}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{post.content['zh-CN'].title}</p>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">{post.content['zh-CN'].excerpt}</p>
-                </div>
-                <span className="text-xs text-slate-500">{post.publishedAt}</span>
-                <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
-                  {getPostStatusLabel(post.status)}
-                </span>
-                <span className="text-xs text-slate-500">{getPostSourceLabel(post)}</span>
-                <button
-                  className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 text-xs font-semibold text-brand transition hover:bg-slate-50"
-                  onClick={() => setSelectedPost(post)}
-                  type="button"
-                >
-                  <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                  详情
-                </button>
-              </div>
-            ))
-          ) : (
-            <div className="px-4 py-8 text-center text-sm text-slate-500">暂无匹配文章</div>
-          )}
-        </div>
-      </section>
-
-      {showCreatePostForm ? (
-      <form className="animate-panel-in rounded-lg border border-line bg-panel p-5 shadow-panel xl:sticky xl:top-4 xl:self-start" onSubmit={onCreatePost}>
-        <h2 className="font-semibold">新建文章</h2>
-        <p className="mt-1 text-xs text-slate-500">发布状态的文章会进入 web /articles。</p>
-        <TextField label="中文标题" onChange={setPostTitleZh} value={postTitleZh} />
-        <TextAreaField label="中文摘要" onChange={setPostExcerptZh} value={postExcerptZh} />
-        <TextField label="英文标题" onChange={setPostTitleEn} value={postTitleEn} />
-        <TextAreaField label="英文摘要" onChange={setPostExcerptEn} value={postExcerptEn} />
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="block text-sm font-medium">
-            分类
+          <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px_140px_140px_112px]">
+            <label className="relative min-w-0">
+              <span className="sr-only">搜索文章</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={event => setQuery(event.target.value)}
+                placeholder="搜索标题、摘要、作者或 ID"
+                value={query}
+              />
+            </label>
             <select
-              className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={(event) => setPostCategoryId(event.target.value as PostCategoryId)}
-              value={postCategoryId}
+              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              onChange={event =>
+                setStatusFilter(event.target.value as PostStatus | 'all')
+              }
+              value={statusFilter}
             >
+              <option value="all">全部状态</option>
+              <option value="published">已发布</option>
+              <option value="review">审核中</option>
+              <option value="draft">草稿</option>
+            </select>
+            <select
+              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              onChange={event =>
+                setCategoryFilter(event.target.value as PostCategoryId | 'all')
+              }
+              value={categoryFilter}
+            >
+              <option value="all">全部分类</option>
               <option value="notes">随笔</option>
               <option value="design">设计</option>
               <option value="engineering">工程</option>
               <option value="culture">文化</option>
             </select>
-          </label>
-          <label className="block text-sm font-medium">
-            状态
             <select
-              className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={(event) => setPostStatus(event.target.value as PostStatus)}
-              value={postStatus}
+              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              onChange={event =>
+                setSourceFilter(
+                  event.target.value as 'all' | 'open-source' | 'personal',
+                )
+              }
+              value={sourceFilter}
             >
-              <option value="published">发布</option>
-              <option value="review">审核</option>
-              <option value="draft">草稿</option>
+              <option value="all">全部来源</option>
+              <option value="open-source">开源</option>
+              <option value="personal">个人上传</option>
             </select>
-          </label>
-        </div>
-        {createMessage ? <p className="mt-3 text-sm text-mint">{createMessage}</p> : null}
-        <button className="mt-5 h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white" type="submit">
-          保存文章
-        </button>
-      </form>
-      ) : null}
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
+              onClick={() => setShowCreatePostForm(current => !current)}
+              type="button"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {showCreatePostForm ? '收起' : '新增'}
+            </button>
+          </div>
+
+          {actionMessage ? (
+            <p className="mt-3 text-sm font-medium text-brand">
+              {actionMessage}
+            </p>
+          ) : null}
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-line">
+            {filteredPosts.length ? (
+              filteredPosts.map(post => (
+                <div
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_92px_92px_96px_88px] lg:items-center"
+                  key={post.id}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      {post.content['zh-CN'].title}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {post.content['zh-CN'].excerpt}
+                    </p>
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    {post.publishedAt}
+                  </span>
+                  <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                    {getPostStatusLabel(post.status)}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {getPostSourceLabel(post)}
+                  </span>
+                  <button
+                    className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 text-xs font-semibold text-brand transition hover:bg-slate-50"
+                    onClick={() => setSelectedPost(post)}
+                    type="button"
+                  >
+                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                    详情
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-sm text-slate-500">
+                暂无匹配文章
+              </div>
+            )}
+          </div>
+        </section>
+
+        {showCreatePostForm ? (
+          <form
+            className="animate-panel-in rounded-lg border border-line bg-panel p-5 shadow-panel xl:sticky xl:top-4 xl:self-start"
+            onSubmit={onCreatePost}
+          >
+            <h2 className="font-semibold">新建文章</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              发布状态的文章会进入 web /articles。
+            </p>
+            <TextField
+              label="中文标题"
+              onChange={setPostTitleZh}
+              value={postTitleZh}
+            />
+            <TextAreaField
+              label="中文摘要"
+              onChange={setPostExcerptZh}
+              value={postExcerptZh}
+            />
+            <TextField
+              label="英文标题"
+              onChange={setPostTitleEn}
+              value={postTitleEn}
+            />
+            <TextAreaField
+              label="英文摘要"
+              onChange={setPostExcerptEn}
+              value={postExcerptEn}
+            />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm font-medium">
+                分类
+                <select
+                  className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  onChange={event =>
+                    setPostCategoryId(event.target.value as PostCategoryId)
+                  }
+                  value={postCategoryId}
+                >
+                  <option value="notes">随笔</option>
+                  <option value="design">设计</option>
+                  <option value="engineering">工程</option>
+                  <option value="culture">文化</option>
+                </select>
+              </label>
+              <label className="block text-sm font-medium">
+                状态
+                <select
+                  className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  onChange={event =>
+                    setPostStatus(event.target.value as PostStatus)
+                  }
+                  value={postStatus}
+                >
+                  <option value="published">发布</option>
+                  <option value="review">审核</option>
+                  <option value="draft">草稿</option>
+                </select>
+              </label>
+            </div>
+            {createMessage ? (
+              <p className="mt-3 text-sm text-mint">{createMessage}</p>
+            ) : null}
+            <button
+              className="mt-5 h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white"
+              type="submit"
+            >
+              保存文章
+            </button>
+          </form>
+        ) : null}
       </div>
 
       {selectedPost ? (
         <ArticleDetailModal
           onClose={() => setSelectedPost(null)}
-          onDelete={async (post) => {
+          onDelete={async post => {
             await onDeletePost(post);
             setSelectedPost(null);
           }}
@@ -890,7 +1114,9 @@ function ArticleDetailModal({
   const [excerptEn, setExcerptEn] = useState(post.content['en-US'].excerpt);
   const [excerptZh, setExcerptZh] = useState(post.content['zh-CN'].excerpt);
   const [message, setMessage] = useState('');
-  const [readingMinutes, setReadingMinutes] = useState(String(post.readingMinutes));
+  const [readingMinutes, setReadingMinutes] = useState(
+    String(post.readingMinutes),
+  );
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<PostStatus>(post.status);
   const [titleEn, setTitleEn] = useState(post.content['en-US'].title);
@@ -960,8 +1186,12 @@ function ArticleDetailModal({
       >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">文章详情</p>
-            <h2 className="truncate text-lg font-semibold">{post.content['zh-CN'].title}</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+              文章详情
+            </p>
+            <h2 className="truncate text-lg font-semibold">
+              {post.content['zh-CN'].title}
+            </h2>
           </div>
           <button
             className="grid h-9 w-9 place-items-center rounded-lg border border-line text-slate-500 transition hover:bg-slate-50"
@@ -976,13 +1206,41 @@ function ArticleDetailModal({
         <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_280px]">
           <section className="space-y-3">
             <div className="grid gap-3 md:grid-cols-2">
-              <CompactTextField label="中文标题" onChange={setTitleZh} value={titleZh} />
-              <CompactTextField label="英文标题" onChange={setTitleEn} value={titleEn} />
+              <CompactTextField
+                label="中文标题"
+                onChange={setTitleZh}
+                value={titleZh}
+              />
+              <CompactTextField
+                label="英文标题"
+                onChange={setTitleEn}
+                value={titleEn}
+              />
             </div>
-            <CompactTextArea label="中文摘要" onChange={setExcerptZh} rows={3} value={excerptZh} />
-            <CompactTextArea label="英文摘要" onChange={setExcerptEn} rows={3} value={excerptEn} />
-            <CompactTextArea label="中文正文" onChange={setBodyZh} rows={6} value={bodyZh} />
-            <CompactTextArea label="英文正文" onChange={setBodyEn} rows={6} value={bodyEn} />
+            <CompactTextArea
+              label="中文摘要"
+              onChange={setExcerptZh}
+              rows={3}
+              value={excerptZh}
+            />
+            <CompactTextArea
+              label="英文摘要"
+              onChange={setExcerptEn}
+              rows={3}
+              value={excerptEn}
+            />
+            <CompactTextArea
+              label="中文正文"
+              onChange={setBodyZh}
+              rows={6}
+              value={bodyZh}
+            />
+            <CompactTextArea
+              label="英文正文"
+              onChange={setBodyEn}
+              rows={6}
+              value={bodyEn}
+            />
           </section>
 
           <aside className="space-y-3">
@@ -992,13 +1250,24 @@ function ArticleDetailModal({
               <p>来源：{getPostSourceLabel(post)}</p>
               <p>发布日期：{post.publishedAt}</p>
             </div>
-            <CompactTextField label="封面 URL" onChange={setCover} value={cover} />
-            <CompactTextField label="阅读分钟" onChange={setReadingMinutes} type="number" value={readingMinutes} />
+            <CompactTextField
+              label="封面 URL"
+              onChange={setCover}
+              value={cover}
+            />
+            <CompactTextField
+              label="阅读分钟"
+              onChange={setReadingMinutes}
+              type="number"
+              value={readingMinutes}
+            />
             <label className="block text-sm font-medium">
               分类
               <select
                 className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                onChange={(event) => setCategoryId(event.target.value as PostCategoryId)}
+                onChange={event =>
+                  setCategoryId(event.target.value as PostCategoryId)
+                }
                 value={categoryId}
               >
                 <option value="notes">随笔</option>
@@ -1011,7 +1280,7 @@ function ArticleDetailModal({
               状态
               <select
                 className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                onChange={(event) => setStatus(event.target.value as PostStatus)}
+                onChange={event => setStatus(event.target.value as PostStatus)}
                 value={status}
               >
                 <option value="published">已发布</option>
@@ -1019,7 +1288,9 @@ function ArticleDetailModal({
                 <option value="draft">草稿</option>
               </select>
             </label>
-            {message ? <p className="text-sm font-medium text-brand">{message}</p> : null}
+            {message ? (
+              <p className="text-sm font-medium text-brand">{message}</p>
+            ) : null}
           </aside>
         </div>
 
@@ -1063,7 +1334,7 @@ function CompactTextField({
       {label}
       <input
         className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         type={type}
         value={value}
       />
@@ -1087,7 +1358,7 @@ function CompactTextArea({
       {label}
       <textarea
         className="mt-1 w-full resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         rows={rows}
         value={value}
       />
@@ -1098,14 +1369,16 @@ function CompactTextArea({
 function splitBodyLines(value: string) {
   const lines = value
     .split('\n')
-    .map((line) => line.trim())
+    .map(line => line.trim())
     .filter(Boolean);
 
   return lines.length ? lines : [''];
 }
 
 function isOpenSourcePost(post: ApiPost) {
-  return post.authorId === 'u_system' || post.authorId.startsWith('open-source');
+  return (
+    post.authorId === 'u_system' || post.authorId.startsWith('open-source')
+  );
 }
 
 function getPostSourceLabel(post: ApiPost) {
@@ -1120,7 +1393,13 @@ function getPostStatusLabel(status: PostStatus) {
   }[status];
 }
 
-const adminDocCategories: Array<WorkDocCategory | 'all'> = ['all', 'deployment', 'shortcut', 'workflow', 'reference'];
+const adminDocCategories: Array<WorkDocCategory | 'all'> = [
+  'all',
+  'deployment',
+  'shortcut',
+  'workflow',
+  'reference',
+];
 
 type DocFormState = {
   category: WorkDocCategory;
@@ -1156,15 +1435,17 @@ function DocsManagerPage({
   onUpdateDoc: (docId: string, formData: FormData) => Promise<WorkDoc>;
 }) {
   const [category, setCategory] = useState<WorkDocCategory | 'all'>('all');
-  const [form, setForm] = useState<DocFormState>(() => createBlankDocForm());
-  const [mode, setMode] = useState<'create' | 'edit'>('edit');
+  const [createForm, setCreateForm] = useState<DocFormState>(() =>
+    createBlankDocForm(),
+  );
   const [query, setQuery] = useState('');
-  const [selectedDocId, setSelectedDocId] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<WorkDoc | null>(null);
+  const [showCreateDocForm, setShowCreateDocForm] = useState(false);
+  const [submittingCreate, setSubmittingCreate] = useState(false);
 
   const filteredDocs = useMemo(
     () =>
-      docs.filter((doc) => {
+      docs.filter(doc => {
         const normalizedQuery = query.trim().toLowerCase();
         const text = [
           doc.id,
@@ -1173,241 +1454,491 @@ function DocsManagerPage({
           doc.content['zh-CN'].title,
           doc.content['zh-CN'].summary,
           doc.content['en-US'].title,
-        ].join(' ').toLowerCase();
-        const matchesQuery = normalizedQuery ? text.includes(normalizedQuery) : true;
+        ]
+          .join(' ')
+          .toLowerCase();
+        const matchesQuery = normalizedQuery
+          ? text.includes(normalizedQuery)
+          : true;
         const matchesCategory = category === 'all' || doc.category === category;
 
         return matchesQuery && matchesCategory;
       }),
     [category, docs, query],
   );
-  const selectedDoc = docs.find((doc) => doc.id === selectedDocId) ?? filteredDocs[0] ?? docs[0] ?? null;
+  const htmlDocCount = useMemo(
+    () => docs.filter(doc => Boolean(doc.htmlFile)).length,
+    [docs],
+  );
+  const textDocCount = docs.length - htmlDocCount;
 
-  useEffect(() => {
-    if (mode === 'create') {
-      return;
-    }
-
-    if (selectedDoc) {
-      setForm(createDocFormFromDoc(selectedDoc));
-    }
-  }, [mode, selectedDoc?.id]);
-
-  function startCreate() {
-    setMode('create');
-    setSelectedDocId('');
-    setForm(createBlankDocForm());
-  }
-
-  function selectDoc(doc: WorkDoc) {
-    setMode('edit');
-    setSelectedDocId(doc.id);
-    setForm(createDocFormFromDoc(doc));
-  }
-
-  function updateForm<Key extends keyof DocFormState>(key: Key, value: DocFormState[Key]) {
-    setForm((current) => ({
+  function updateCreateForm<Key extends keyof DocFormState>(
+    key: Key,
+    value: DocFormState[Key],
+  ) {
+    setCreateForm(current => ({
       ...current,
       [key]: value,
     }));
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitting(true);
+    setSubmittingCreate(true);
 
     try {
-      const formData = buildDocFormData(form);
-
-      if (mode === 'create') {
-        const created = await onCreateDoc(formData);
-        setSelectedDocId(created.id);
-        setMode('edit');
-        setForm(createDocFormFromDoc(created));
-      } else if (selectedDoc) {
-        const updated = await onUpdateDoc(selectedDoc.id, formData);
-        setSelectedDocId(updated.id);
-        setForm(createDocFormFromDoc(updated));
-      }
+      await onCreateDoc(buildDocFormData(createForm));
+      setCreateForm(createBlankDocForm());
+      setShowCreateDocForm(false);
     } finally {
-      setSubmitting(false);
+      setSubmittingCreate(false);
     }
-  }
-
-  async function handleDelete() {
-    if (!selectedDoc) {
-      return;
-    }
-
-    if (!window.confirm(`确认删除文档：${selectedDoc.content['zh-CN'].title}？`)) {
-      return;
-    }
-
-    await onDeleteDoc(selectedDoc);
-    setSelectedDocId('');
-    setMode('edit');
-    setForm(createBlankDocForm());
   }
 
   return (
-    <section className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <ApiSummaryItem label="文档总数" value={docs.length} />
-        <ApiSummaryItem label="当前筛选" value={filteredDocs.length} />
-        <ApiSummaryItem label="分类数" value={new Set(docs.map((doc) => doc.category)).size} />
-      </div>
-
-      <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="rounded-lg border border-line bg-panel p-3 shadow-panel">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+    <section className="space-y-4">
+      <div
+        className={
+          showCreateDocForm
+            ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]'
+            : 'grid gap-4'
+        }
+      >
+        <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg font-semibold">笔记文档</h2>
-              <p className="text-sm text-slate-500">通过接口新增、编辑、删除文档，HTML 文件由 API 自动保存。</p>
+              <p className="mt-1 text-sm text-slate-500">
+                筛选、查看详情、编辑和删除文档。
+              </p>
             </div>
-            <button
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-semibold text-white transition hover:bg-ink/90"
-              onClick={startCreate}
-              type="button"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              新增
-            </button>
+            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[28rem]">
+              <ApiSummaryItem label="文档总数" value={docs.length} />
+              <ApiSummaryItem label="HTML 文档" value={htmlDocCount} />
+              <ApiSummaryItem label="文本文档" value={textDocCount} />
+            </div>
           </div>
 
-          <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px]">
+          <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_150px_112px]">
             <label className="relative min-w-0">
               <span className="sr-only">搜索文档</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索标题、分类、标签"
+                onChange={event => setQuery(event.target.value)}
+                placeholder="搜索标题、摘要、分类、标签或 ID"
                 value={query}
               />
             </label>
             <select
               className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={(event) => setCategory(event.target.value as WorkDocCategory | 'all')}
+              onChange={event =>
+                setCategory(event.target.value as WorkDocCategory | 'all')
+              }
               value={category}
             >
               <option value="all">全部分类</option>
-              {docCategoryItems.map((item) => (
+              {docCategoryItems.map(item => (
                 <option key={item.value} value={item.value}>
                   {item.label}
                 </option>
               ))}
             </select>
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
+              onClick={() => setShowCreateDocForm(current => !current)}
+              type="button"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {showCreateDocForm ? '收起' : '新增'}
+            </button>
           </div>
 
-          <div className="mt-3 overflow-hidden rounded-lg border border-line">
+          {actionMessage ? (
+            <p className="mt-3 text-sm font-medium text-brand">
+              {actionMessage}
+            </p>
+          ) : null}
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-line">
             {filteredDocs.length ? (
-              filteredDocs.map((doc) => (
-                <button
-                  className={`grid w-full gap-1 border-b border-line px-3 py-2 text-left last:border-b-0 transition hover:bg-slate-50 ${
-                    mode === 'edit' && selectedDoc?.id === doc.id ? 'bg-slate-50' : ''
-                  }`}
+              filteredDocs.map(doc => (
+                <div
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_96px_88px] lg:items-center"
                   key={doc.id}
-                  onClick={() => selectDoc(doc)}
-                  type="button"
                 >
-                  <span className="truncate text-sm font-semibold">{doc.content['zh-CN'].title}</span>
-                  <span className="truncate text-xs text-slate-500">{doc.content['zh-CN'].summary}</span>
-                  <span className="text-xs text-slate-400">
-                    {getDocCategoryName(doc.category)} / {doc.updatedAt}
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      {doc.content['zh-CN'].title}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {doc.content['zh-CN'].summary}
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                    {getDocCategoryName(doc.category)}
                   </span>
-                </button>
+                  <span className="text-xs text-slate-500">
+                    {doc.updatedAt}
+                  </span>
+                  <button
+                    className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 text-xs font-semibold text-brand transition hover:bg-slate-50"
+                    onClick={() => setSelectedDoc(doc)}
+                    type="button"
+                  >
+                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                    详情
+                  </button>
+                </div>
               ))
             ) : (
-              <div className="px-4 py-8 text-center text-sm text-slate-500">暂无匹配文档</div>
+              <div className="px-4 py-8 text-center text-sm text-slate-500">
+                暂无匹配文档
+              </div>
             )}
           </div>
+        </section>
+
+        {showCreateDocForm ? (
+          <aside className="animate-panel-in rounded-lg border border-line bg-panel p-5 shadow-panel xl:sticky xl:top-4 xl:self-start">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">
+                  Create
+                </p>
+                <h3 className="text-lg font-semibold">新增文档</h3>
+              </div>
+            </div>
+
+            <form className="mt-3 space-y-3" onSubmit={handleCreateSubmit}>
+              <AdminCompactField
+                label="中文标题"
+                onChange={value => updateCreateForm('titleZh', value)}
+                value={createForm.titleZh}
+              />
+              <AdminCompactTextarea
+                label="中文摘要"
+                onChange={value => updateCreateForm('summaryZh', value)}
+                rows={3}
+                value={createForm.summaryZh}
+              />
+              <AdminCompactField
+                label="英文标题"
+                onChange={value => updateCreateForm('titleEn', value)}
+                value={createForm.titleEn}
+              />
+              <AdminCompactTextarea
+                label="英文摘要"
+                onChange={value => updateCreateForm('summaryEn', value)}
+                rows={3}
+                value={createForm.summaryEn}
+              />
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-slate-700">
+                  分类
+                  <select
+                    className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                    onChange={event =>
+                      updateCreateForm(
+                        'category',
+                        event.target.value as WorkDocCategory,
+                      )
+                    }
+                    value={createForm.category}
+                  >
+                    {docCategoryItems.map(item => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <AdminCompactField
+                  label="时间"
+                  onChange={value => updateCreateForm('updatedAt', value)}
+                  value={createForm.updatedAt}
+                />
+              </div>
+
+              <AdminCompactField
+                label="标签（逗号分隔）"
+                onChange={value => updateCreateForm('tags', value)}
+                value={createForm.tags}
+              />
+              <AdminCompactTextarea
+                label="中文文本（无 HTML 文件时自动生成页面）"
+                onChange={value => updateCreateForm('textZh', value)}
+                rows={5}
+                value={createForm.textZh}
+              />
+              <AdminCompactTextarea
+                label="英文文本"
+                onChange={value => updateCreateForm('textEn', value)}
+                rows={4}
+                value={createForm.textEn}
+              />
+
+              <label className="block text-sm font-medium text-slate-700">
+                HTML 文件
+                <input
+                  accept=".html,.htm,text/html"
+                  className="mt-1 block w-full rounded-lg border border-line bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
+                  onChange={event =>
+                    updateCreateForm('file', event.target.files?.[0] ?? null)
+                  }
+                  type="file"
+                />
+              </label>
+
+              {actionMessage ? (
+                <p className="text-sm font-medium text-brand">
+                  {actionMessage}
+                </p>
+              ) : null}
+
+              <div className="flex gap-2">
+                <button
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:opacity-60"
+                  disabled={submittingCreate}
+                  type="submit"
+                >
+                  <Upload className="h-4 w-4" aria-hidden="true" />
+                  {submittingCreate ? '保存中...' : '提交保存'}
+                </button>
+              </div>
+            </form>
+          </aside>
+        ) : null}
+      </div>
+
+      {selectedDoc ? (
+        <DocDetailModal
+          doc={selectedDoc}
+          onClose={() => setSelectedDoc(null)}
+          onDelete={async doc => {
+            await onDeleteDoc(doc);
+            setSelectedDoc(null);
+          }}
+          onUpdate={async (docId, formData) => {
+            const updated = await onUpdateDoc(docId, formData);
+            setSelectedDoc(updated);
+            return updated;
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function DocDetailModal({
+  doc,
+  onClose,
+  onDelete,
+  onUpdate,
+}: {
+  doc: WorkDoc;
+  onClose: () => void;
+  onDelete: (doc: WorkDoc) => Promise<void>;
+  onUpdate: (docId: string, formData: FormData) => Promise<WorkDoc>;
+}) {
+  const [deletePending, setDeletePending] = useState(false);
+  const [form, setForm] = useState<DocFormState>(() =>
+    createDocFormFromDoc(doc),
+  );
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  function updateForm<Key extends keyof DocFormState>(
+    key: Key,
+    value: DocFormState[Key],
+  ) {
+    setForm(current => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage('');
+    setSaving(true);
+
+    try {
+      const updated = await onUpdate(doc.id, buildDocFormData(form));
+      setForm(createDocFormFromDoc(updated));
+      setMessage('文档详情已保存。');
+    } catch {
+      setMessage('保存失败，请稍后再试。');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setMessage('');
+
+    if (!window.confirm(`确认删除文档《${doc.content['zh-CN'].title}》吗？`)) {
+      return;
+    }
+
+    setDeletePending(true);
+
+    try {
+      await onDelete(doc);
+    } catch {
+      setMessage('删除失败，请稍后再试。');
+      setDeletePending(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 px-4 py-6">
+      <form
+        className="max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-line bg-panel shadow-panel"
+        onSubmit={handleSave}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+              文档详情
+            </p>
+            <h2 className="truncate text-lg font-semibold">
+              {doc.content['zh-CN'].title}
+            </h2>
+          </div>
+          <button
+            className="grid h-9 w-9 place-items-center rounded-lg border border-line text-slate-500 transition hover:bg-slate-50"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">关闭</span>
+          </button>
         </div>
 
-        <aside className="rounded-lg border border-line bg-panel p-3 shadow-panel xl:sticky xl:top-4 xl:self-start">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">
-                {mode === 'create' ? 'Create' : 'Edit'}
-              </p>
-              <h3 className="text-lg font-semibold">{mode === 'create' ? '新增文档' : '编辑文档'}</h3>
+        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <section className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <AdminCompactField
+                label="中文标题"
+                onChange={value => updateForm('titleZh', value)}
+                value={form.titleZh}
+              />
+              <AdminCompactField
+                label="英文标题"
+                onChange={value => updateForm('titleEn', value)}
+                value={form.titleEn}
+              />
             </div>
-            {mode === 'edit' && selectedDoc?.htmlFile ? (
+            <AdminCompactTextarea
+              label="中文摘要"
+              onChange={value => updateForm('summaryZh', value)}
+              rows={3}
+              value={form.summaryZh}
+            />
+            <AdminCompactTextarea
+              label="英文摘要"
+              onChange={value => updateForm('summaryEn', value)}
+              rows={3}
+              value={form.summaryEn}
+            />
+            <AdminCompactTextarea
+              label="中文文本"
+              onChange={value => updateForm('textZh', value)}
+              rows={6}
+              value={form.textZh}
+            />
+            <AdminCompactTextarea
+              label="英文文本"
+              onChange={value => updateForm('textEn', value)}
+              rows={5}
+              value={form.textEn}
+            />
+          </section>
+
+          <aside className="space-y-3">
+            <div className="rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-500">
+              <p>ID：{doc.id}</p>
+              <p>分类：{getDocCategoryName(doc.category)}</p>
+              <p>更新时间：{doc.updatedAt}</p>
+              <p>HTML：{doc.htmlFile || '无'}</p>
+            </div>
+            {doc.htmlFile ? (
               <a
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-brand transition hover:bg-slate-50"
-                href={adminApi.docHtmlUrl(selectedDoc.htmlFile)}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-brand transition hover:bg-slate-50"
+                href={adminApi.docHtmlUrl(doc.htmlFile)}
                 rel="noreferrer"
                 target="_blank"
               >
                 <Eye className="h-4 w-4" aria-hidden="true" />
-                预览
+                预览 HTML
               </a>
             ) : null}
-          </div>
-
-          <form className="mt-3 space-y-3" onSubmit={handleSubmit}>
-            <AdminCompactField label="中文标题" onChange={(value) => updateForm('titleZh', value)} value={form.titleZh} />
-            <AdminCompactTextarea label="中文摘要" onChange={(value) => updateForm('summaryZh', value)} rows={3} value={form.summaryZh} />
-            <AdminCompactField label="英文标题" onChange={(value) => updateForm('titleEn', value)} value={form.titleEn} />
-            <AdminCompactTextarea label="英文摘要" onChange={(value) => updateForm('summaryEn', value)} rows={3} value={form.summaryEn} />
-
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-700">
-                分类
-                <select
-                  className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                  onChange={(event) => updateForm('category', event.target.value as WorkDocCategory)}
-                  value={form.category}
-                >
-                  {docCategoryItems.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <AdminCompactField label="时间" onChange={(value) => updateForm('updatedAt', value)} value={form.updatedAt} />
-            </div>
-
-            <AdminCompactField label="标签（逗号分隔）" onChange={(value) => updateForm('tags', value)} value={form.tags} />
-            <AdminCompactTextarea label="中文文本（无 HTML 文件时自动生成页面）" onChange={(value) => updateForm('textZh', value)} rows={5} value={form.textZh} />
-            <AdminCompactTextarea label="英文文本" onChange={(value) => updateForm('textEn', value)} rows={4} value={form.textEn} />
-
             <label className="block text-sm font-medium text-slate-700">
-              HTML 文件
+              分类
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={event =>
+                  updateForm('category', event.target.value as WorkDocCategory)
+                }
+                value={form.category}
+              >
+                {docCategoryItems.map(item => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <AdminCompactField
+              label="时间"
+              onChange={value => updateForm('updatedAt', value)}
+              value={form.updatedAt}
+            />
+            <AdminCompactField
+              label="标签（逗号分隔）"
+              onChange={value => updateForm('tags', value)}
+              value={form.tags}
+            />
+            <label className="block text-sm font-medium text-slate-700">
+              替换 HTML 文件
               <input
                 accept=".html,.htm,text/html"
                 className="mt-1 block w-full rounded-lg border border-line bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-ink"
-                onChange={(event) => updateForm('file', event.target.files?.[0] ?? null)}
+                onChange={event =>
+                  updateForm('file', event.target.files?.[0] ?? null)
+                }
                 type="file"
               />
             </label>
+            {message ? (
+              <p className="text-sm font-medium text-brand">{message}</p>
+            ) : null}
+          </aside>
+        </div>
 
-            {actionMessage ? <p className="text-sm font-medium text-brand">{actionMessage}</p> : null}
-
-            <div className="flex gap-2">
-              <button
-                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-ink px-3 text-sm font-semibold text-white transition hover:bg-ink/90 disabled:opacity-60"
-                disabled={submitting}
-                type="submit"
-              >
-                {mode === 'create' ? <Upload className="h-4 w-4" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
-                {submitting ? '保存中...' : mode === 'create' ? '提交保存' : '保存修改'}
-              </button>
-              {mode === 'edit' && selectedDoc ? (
-                <button
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-coral px-3 text-sm font-semibold text-coral transition hover:bg-coral hover:text-white"
-                  onClick={handleDelete}
-                  type="button"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  删除
-                </button>
-              ) : null}
-            </div>
-          </form>
-        </aside>
-      </section>
-    </section>
+        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-between">
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-coral/30 px-4 text-sm font-semibold text-coral transition hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={deletePending || saving}
+            onClick={handleDelete}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {deletePending ? '删除中...' : '删除文档'}
+          </button>
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={saving || deletePending}
+            type="submit"
+          >
+            <Save className="h-4 w-4" aria-hidden="true" />
+            {saving ? '保存中...' : '保存修改'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -1462,7 +1993,9 @@ function buildDocFormData(form: DocFormState) {
 }
 
 function getDocCategoryName(category: WorkDocCategory) {
-  return docCategoryItems.find((item) => item.value === category)?.label ?? category;
+  return (
+    docCategoryItems.find(item => item.value === category)?.label ?? category
+  );
 }
 
 function AdminCompactField({
@@ -1479,7 +2012,7 @@ function AdminCompactField({
       {label}
       <input
         className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         value={value}
       />
     </label>
@@ -1502,7 +2035,7 @@ function AdminCompactTextarea({
       {label}
       <textarea
         className="mt-1 w-full resize-y rounded-lg border border-line px-3 py-2 text-sm leading-6 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         rows={rows}
         value={value}
       />
@@ -1516,7 +2049,7 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
   const [selectedDocId, setSelectedDocId] = useState('');
   const filteredDocs = useMemo(
     () =>
-      docs.filter((doc) => {
+      docs.filter(doc => {
         const normalizedQuery = query.trim().toLowerCase();
         const text = [
           doc.id,
@@ -1525,22 +2058,32 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
           doc.content['zh-CN'].title,
           doc.content['zh-CN'].summary,
           doc.content['en-US'].title,
-        ].join(' ').toLowerCase();
-        const matchesQuery = normalizedQuery ? text.includes(normalizedQuery) : true;
+        ]
+          .join(' ')
+          .toLowerCase();
+        const matchesQuery = normalizedQuery
+          ? text.includes(normalizedQuery)
+          : true;
         const matchesCategory = category === 'all' || doc.category === category;
 
         return matchesQuery && matchesCategory;
       }),
     [category, docs, query],
   );
-  const selectedDoc = filteredDocs.find((doc) => doc.id === selectedDocId) ?? filteredDocs[0] ?? null;
+  const selectedDoc =
+    filteredDocs.find(doc => doc.id === selectedDocId) ??
+    filteredDocs[0] ??
+    null;
 
   return (
     <section className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-3">
         <ApiSummaryItem label="文档总数" value={docs.length} />
         <ApiSummaryItem label="当前筛选" value={filteredDocs.length} />
-        <ApiSummaryItem label="分类数" value={new Set(docs.map((doc) => doc.category)).size} />
+        <ApiSummaryItem
+          label="分类数"
+          value={new Set(docs.map(doc => doc.category)).size}
+        />
       </div>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -1548,7 +2091,9 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg font-semibold">笔记文档</h2>
-              <p className="mt-1 text-sm text-slate-500">浏览部署流程、快捷操作和工作参考。</p>
+              <p className="mt-1 text-sm text-slate-500">
+                浏览部署流程、快捷操作和工作参考。
+              </p>
             </div>
             <div className="grid gap-2 lg:grid-cols-[220px_140px]">
               <label className="relative min-w-0">
@@ -1556,17 +2101,19 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={event => setQuery(event.target.value)}
                   placeholder="搜索文档"
                   value={query}
                 />
               </label>
               <select
                 className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                onChange={(event) => setCategory(event.target.value as WorkDocCategory | 'all')}
+                onChange={event =>
+                  setCategory(event.target.value as WorkDocCategory | 'all')
+                }
                 value={category}
               >
-                {adminDocCategories.map((item) => (
+                {adminDocCategories.map(item => (
                   <option key={item} value={item}>
                     {getAdminDocCategoryLabel(item)}
                   </option>
@@ -1577,7 +2124,7 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
 
           <div className="mt-4 overflow-hidden rounded-lg border border-line">
             {filteredDocs.length ? (
-              filteredDocs.map((doc) => (
+              filteredDocs.map(doc => (
                 <button
                   className={`grid w-full gap-1 border-b border-line px-3 py-2 text-left last:border-b-0 transition hover:bg-slate-50 ${
                     selectedDoc?.id === doc.id ? 'bg-slate-50' : ''
@@ -1586,15 +2133,21 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
                   onClick={() => setSelectedDocId(doc.id)}
                   type="button"
                 >
-                  <span className="truncate text-sm font-semibold">{doc.content['zh-CN'].title}</span>
-                  <span className="truncate text-xs text-slate-500">{doc.content['zh-CN'].summary}</span>
+                  <span className="truncate text-sm font-semibold">
+                    {doc.content['zh-CN'].title}
+                  </span>
+                  <span className="truncate text-xs text-slate-500">
+                    {doc.content['zh-CN'].summary}
+                  </span>
                   <span className="text-xs text-slate-400">
                     {getAdminDocCategoryLabel(doc.category)} · {doc.updatedAt}
                   </span>
                 </button>
               ))
             ) : (
-              <div className="px-4 py-8 text-center text-sm text-slate-500">暂无匹配文档</div>
+              <div className="px-4 py-8 text-center text-sm text-slate-500">
+                暂无匹配文档
+              </div>
             )}
           </div>
         </div>
@@ -1608,11 +2161,18 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
                 </span>
                 <span>{selectedDoc.updatedAt}</span>
               </div>
-              <h3 className="mt-3 text-xl font-semibold">{selectedDoc.content['zh-CN'].title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-500">{selectedDoc.content['zh-CN'].summary}</p>
+              <h3 className="mt-3 text-xl font-semibold">
+                {selectedDoc.content['zh-CN'].title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {selectedDoc.content['zh-CN'].summary}
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
-                {selectedDoc.tags.map((tag) => (
-                  <span className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-500" key={tag}>
+                {selectedDoc.tags.map(tag => (
+                  <span
+                    className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-500"
+                    key={tag}
+                  >
                     #{tag}
                   </span>
                 ))}
@@ -1625,39 +2185,51 @@ function DocsAdminPage({ docs }: { docs: WorkDoc[] }) {
                     rel="noreferrer"
                     target="_blank"
                   >
-                    <span className="min-w-0 truncate">{selectedDoc.htmlFile}</span>
+                    <span className="min-w-0 truncate">
+                      {selectedDoc.htmlFile}
+                    </span>
                     <LinkIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
                   </a>
                 ) : null}
-                {selectedDoc.content['zh-CN'].body.map((paragraph) => (
+                {selectedDoc.content['zh-CN'].body.map(paragraph => (
                   <p key={paragraph}>{paragraph}</p>
                 ))}
-                {!selectedDoc.htmlFile && selectedDoc.content['zh-CN'].sections?.length ? (
+                {!selectedDoc.htmlFile &&
+                selectedDoc.content['zh-CN'].sections?.length ? (
                   <div className="grid gap-2 pt-1">
-                    {selectedDoc.content['zh-CN'].sections.map((section, index) => (
-                      <section className="rounded-lg border border-line bg-slate-50 p-3" key={section.title}>
-                        <div className="flex items-center gap-2">
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-brand text-xs font-bold text-white">
-                            {index + 1}
-                          </span>
-                          <h4 className="text-sm font-semibold text-slate-900">{section.title}</h4>
-                        </div>
-                        <ul className="mt-2 space-y-1.5 text-xs leading-5 text-slate-600">
-                          {section.items.map((item) => (
-                            <li className="flex gap-2" key={item}>
-                              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    ))}
+                    {selectedDoc.content['zh-CN'].sections.map(
+                      (section, index) => (
+                        <section
+                          className="rounded-lg border border-line bg-slate-50 p-3"
+                          key={section.title}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-brand text-xs font-bold text-white">
+                              {index + 1}
+                            </span>
+                            <h4 className="text-sm font-semibold text-slate-900">
+                              {section.title}
+                            </h4>
+                          </div>
+                          <ul className="mt-2 space-y-1.5 text-xs leading-5 text-slate-600">
+                            {section.items.map(item => (
+                              <li className="flex gap-2" key={item}>
+                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ),
+                    )}
                   </div>
                 ) : null}
               </div>
             </>
           ) : (
-            <div className="py-10 text-center text-sm text-slate-500">请选择文档</div>
+            <div className="py-10 text-center text-sm text-slate-500">
+              请选择文档
+            </div>
           )}
         </aside>
       </section>
@@ -1675,9 +2247,12 @@ function getAdminDocCategoryLabel(category: WorkDocCategory | 'all') {
   }[category];
 }
 
-function getAdminMusicCategoryLabel(categoryId: MusicCategoryId | undefined, categories: MusicCategory[]) {
+function getAdminMusicCategoryLabel(
+  categoryId: MusicCategoryId | undefined,
+  categories: MusicCategory[],
+) {
   const normalizedCategoryId = categoryId ?? 'personal';
-  const category = categories.find((item) => item.id === normalizedCategoryId);
+  const category = categories.find(item => item.id === normalizedCategoryId);
 
   if (category) {
     return category.name['zh-CN'];
@@ -1689,6 +2264,14 @@ function getAdminMusicCategoryLabel(categoryId: MusicCategoryId | undefined, cat
     mandarin: '中文',
     personal: '私藏',
   }[normalizedCategoryId];
+}
+
+function formatAdminTrackLine(track: FavoriteMusic) {
+  return track.album ? `${track.artist} · 《${track.album}》` : track.artist;
+}
+
+function getMusicSourceLabel(source: FavoriteMusic['source']) {
+  return source === 'upload' ? '本地上传' : '外部链接';
 }
 
 function UsersAdminPage({
@@ -1711,18 +2294,23 @@ function UsersAdminPage({
   return (
     <section className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard color="brand" icon={<UsersRound />} label="用户总数" value={users.length} />
+        <MetricCard
+          color="brand"
+          icon={<UsersRound />}
+          label="用户总数"
+          value={users.length}
+        />
         <MetricCard
           color="mint"
           icon={<ShieldCheck />}
           label="管理员"
-          value={users.filter((user) => user.role === 'admin').length}
+          value={users.filter(user => user.role === 'admin').length}
         />
         <MetricCard
           color="amber"
           icon={<BookOpenCheck />}
           label="作者"
-          value={users.filter((user) => user.role === 'author').length}
+          value={users.filter(user => user.role === 'author').length}
         />
       </div>
 
@@ -1730,7 +2318,9 @@ function UsersAdminPage({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold">用户管理</h2>
-            <p className="mt-1 text-sm text-slate-500">查看所有注册用户，并按昵称、邮箱或角色搜索。</p>
+            <p className="mt-1 text-sm text-slate-500">
+              查看所有注册用户，并按昵称、邮箱或角色搜索。
+            </p>
           </div>
           <form className="flex w-full gap-2 lg:max-w-md" onSubmit={onSearch}>
             <label className="relative min-w-0 flex-1">
@@ -1738,22 +2328,27 @@ function UsersAdminPage({
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 className="h-11 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={event => setSearch(event.target.value)}
                 placeholder="搜索昵称、邮箱或角色"
                 value={search}
               />
             </label>
-            <button className="h-11 rounded-lg bg-brand px-4 text-sm font-semibold text-white" type="submit">
+            <button
+              className="h-11 rounded-lg bg-brand px-4 text-sm font-semibold text-white"
+              type="submit"
+            >
               搜索
             </button>
           </form>
         </div>
 
-        {deleteMessage ? <p className="mt-4 text-sm font-medium text-brand">{deleteMessage}</p> : null}
+        {deleteMessage ? (
+          <p className="mt-4 text-sm font-medium text-brand">{deleteMessage}</p>
+        ) : null}
 
         <div className="mt-5 overflow-hidden rounded-lg border border-line">
           {users.length ? (
-            users.map((user) => (
+            users.map(user => (
               <div
                 className="grid gap-3 border-b border-line px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_110px_150px]"
                 key={user.id}
@@ -1767,7 +2362,9 @@ function UsersAdminPage({
                   {user.role}
                 </span>
                 {user.id === currentUserId ? (
-                  <span className="text-xs font-medium text-slate-400">当前账号</span>
+                  <span className="text-xs font-medium text-slate-400">
+                    当前账号
+                  </span>
                 ) : (
                   <button
                     className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-lg border border-coral/30 px-3 text-xs font-semibold text-coral transition hover:bg-coral/10"
@@ -1781,7 +2378,9 @@ function UsersAdminPage({
               </div>
             ))
           ) : (
-            <div className="px-4 py-10 text-center text-sm text-slate-500">暂无匹配用户</div>
+            <div className="px-4 py-10 text-center text-sm text-slate-500">
+              暂无匹配用户
+            </div>
           )}
         </div>
       </section>
@@ -1790,6 +2389,7 @@ function UsersAdminPage({
 }
 
 function MusicAdminPage({
+  actionMessage,
   createMessage,
   music,
   musicAlbum,
@@ -1801,6 +2401,8 @@ function MusicAdminPage({
   musicTitle,
   musicUrl,
   onCreateMusic,
+  onDeleteMusic,
+  onUpdateMusic,
   setMusicAlbum,
   setMusicArtist,
   setMusicCategoryId,
@@ -1809,6 +2411,7 @@ function MusicAdminPage({
   setMusicTitle,
   setMusicUrl,
 }: {
+  actionMessage: string;
   createMessage: string;
   music: FavoriteMusic[];
   musicAlbum: string;
@@ -1820,6 +2423,11 @@ function MusicAdminPage({
   musicTitle: string;
   musicUrl: string;
   onCreateMusic: (event: FormEvent<HTMLFormElement>) => void;
+  onDeleteMusic: (track: FavoriteMusic) => Promise<void>;
+  onUpdateMusic: (
+    musicId: string,
+    body: CreateMusicBody,
+  ) => Promise<FavoriteMusic>;
   setMusicAlbum: (value: string) => void;
   setMusicArtist: (value: string) => void;
   setMusicCategoryId: (value: MusicCategoryId) => void;
@@ -1828,92 +2436,511 @@ function MusicAdminPage({
   setMusicTitle: (value: string) => void;
   setMusicUrl: (value: string) => void;
 }) {
-  return (
-    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
-        <h2 className="text-lg font-semibold">音乐列表</h2>
-        <div className="mt-5 grid gap-3">
-          {music.map((track) => (
-            <article className="rounded-lg border border-line p-4" key={track.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold">{track.title}</h3>
-                  <p className="mt-1 text-sm text-slate-500">{track.artist}</p>
-                </div>
-                <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                  <span className="rounded-md bg-mint/10 px-2 py-1 text-xs font-semibold text-mint">
-                    {getAdminMusicCategoryLabel(track.categoryId, musicCategories)}
-                  </span>
-                  <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
-                    {track.source}
-                  </span>
-                </div>
-              </div>
-              {track.audioUrl ? (
-                <audio className="mt-3 w-full" controls preload="none" src={resolveMediaUrl(track.audioUrl)} />
-              ) : (
-                <p className="mt-3 text-sm text-slate-500">暂无可播放音频，仅保存来源链接。</p>
-              )}
-            </article>
-          ))}
-        </div>
-      </section>
+  const [categoryFilter, setCategoryFilter] = useState<MusicCategoryId | 'all'>(
+    'all',
+  );
+  const [query, setQuery] = useState('');
+  const [selectedTrack, setSelectedTrack] = useState<FavoriteMusic | null>(
+    null,
+  );
+  const [showCreateMusicForm, setShowCreateMusicForm] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<
+    'all' | 'upload' | 'external'
+  >('all');
+  const uploadCount = useMemo(
+    () => music.filter(track => track.source === 'upload').length,
+    [music],
+  );
+  const externalCount = music.length - uploadCount;
+  const filteredMusic = useMemo(
+    () =>
+      music.filter(track => {
+        const normalizedQuery = query.trim().toLowerCase();
+        const searchable = [
+          track.id,
+          track.title,
+          track.artist,
+          track.album,
+          track.platform,
+          track.url,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        const matchesQuery = normalizedQuery
+          ? searchable.includes(normalizedQuery)
+          : true;
+        const matchesCategory =
+          categoryFilter === 'all' || track.categoryId === categoryFilter;
+        const matchesSource =
+          sourceFilter === 'all' || track.source === sourceFilter;
 
-      <form className="rounded-lg border border-line bg-panel p-5 shadow-panel" onSubmit={onCreateMusic}>
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-lg bg-coral text-white">
-            <Upload className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div>
-            <h2 className="font-semibold">上传音乐</h2>
-            <p className="text-xs text-slate-500">选择文件或填写外部音频链接。</p>
+        return matchesQuery && matchesCategory && matchesSource;
+      }),
+    [categoryFilter, music, query, sourceFilter],
+  );
+
+  return (
+    <section className="space-y-4">
+      <div
+        className={
+          showCreateMusicForm
+            ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]'
+            : 'grid gap-4'
+        }
+      >
+        <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">音乐管理</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                筛选、查看详情、编辑和删除音乐。
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[28rem]">
+              <ApiSummaryItem label="音乐总数" value={music.length} />
+              <ApiSummaryItem label="本地上传" value={uploadCount} />
+              <ApiSummaryItem label="外部链接" value={externalCount} />
+            </div>
           </div>
-        </div>
-        <TextField label="歌曲名" onChange={setMusicTitle} value={musicTitle} />
-        <TextField label="歌手" onChange={setMusicArtist} value={musicArtist} />
-        <label className="mt-4 block text-sm font-medium">
-          分类
-          <select
-            className="mt-2 h-10 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-mint"
-            onChange={(event) => setMusicCategoryId(event.target.value as MusicCategoryId)}
-            value={musicCategoryId}
-          >
-            {musicCategories.length ? (
-              musicCategories.map((item) => (
+
+          <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px_140px_112px]">
+            <label className="relative min-w-0">
+              <span className="sr-only">搜索音乐</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                className="h-10 w-full rounded-lg border border-line pl-10 pr-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={event => setQuery(event.target.value)}
+                placeholder="搜索歌名、歌手、专辑、平台或 ID"
+                value={query}
+              />
+            </label>
+            <select
+              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              onChange={event =>
+                setCategoryFilter(event.target.value as MusicCategoryId | 'all')
+              }
+              value={categoryFilter}
+            >
+              <option value="all">全部分类</option>
+              {musicCategories.map(item => (
                 <option key={item.id} value={item.id}>
                   {item.name['zh-CN']}
                 </option>
+              ))}
+            </select>
+            <select
+              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              onChange={event =>
+                setSourceFilter(
+                  event.target.value as 'all' | 'upload' | 'external',
+                )
+              }
+              value={sourceFilter}
+            >
+              <option value="all">全部来源</option>
+              <option value="upload">本地上传</option>
+              <option value="external">外部链接</option>
+            </select>
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
+              onClick={() => setShowCreateMusicForm(current => !current)}
+              type="button"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {showCreateMusicForm ? '收起' : '新增'}
+            </button>
+          </div>
+
+          {actionMessage ? (
+            <p className="mt-3 text-sm font-medium text-brand">
+              {actionMessage}
+            </p>
+          ) : null}
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-line">
+            {filteredMusic.length ? (
+              filteredMusic.map(track => (
+                <div
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_86px_92px_88px] lg:items-center"
+                  key={track.id}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      {track.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">
+                      {formatAdminTrackLine(track)}
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-md bg-mint/10 px-2 py-1 text-xs font-semibold text-mint">
+                    {getAdminMusicCategoryLabel(
+                      track.categoryId,
+                      musicCategories,
+                    )}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {getMusicSourceLabel(track.source)}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {track.createdAt.slice(0, 10)}
+                  </span>
+                  <button
+                    className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 text-xs font-semibold text-brand transition hover:bg-slate-50"
+                    onClick={() => setSelectedTrack(track)}
+                    type="button"
+                  >
+                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                    详情
+                  </button>
+                </div>
               ))
             ) : (
-              <option value={musicCategoryId}>
-                {getAdminMusicCategoryLabel(musicCategoryId, musicCategories)}
-              </option>
+              <div className="px-4 py-8 text-center text-sm text-slate-500">
+                暂无匹配音乐
+              </div>
             )}
-          </select>
-        </label>
-        <TextField label="专辑" onChange={setMusicAlbum} value={musicAlbum} />
-        <TextField label="封面 URL" onChange={setMusicCover} value={musicCover} />
-        <TextField label="外部音频 URL" onChange={setMusicUrl} value={musicUrl} />
-        <label className="mt-4 block text-sm font-medium">
-          上传文件
-          <input
-            accept="audio/*"
-            className="mt-2 block w-full rounded-lg border border-line px-3 py-2 text-sm"
-            onChange={(event) => setMusicFile(event.target.files?.[0] ?? null)}
-            type="file"
-          />
-        </label>
-        {musicFile ? <p className="mt-2 text-xs text-slate-500">已选择：{musicFile.name}</p> : null}
-        {createMessage ? <p className="mt-3 text-sm text-mint">{createMessage}</p> : null}
-        <button className="mt-5 h-11 w-full rounded-lg bg-coral px-4 text-sm font-semibold text-white" type="submit">
-          保存音乐
-        </button>
-      </form>
+          </div>
+        </section>
+
+        {showCreateMusicForm ? (
+          <form
+            className="animate-panel-in rounded-lg border border-line bg-panel p-5 shadow-panel xl:sticky xl:top-4 xl:self-start"
+            onSubmit={onCreateMusic}
+          >
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-lg bg-coral text-white">
+                <Upload className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 className="font-semibold">新增音乐</h2>
+                <p className="text-xs text-slate-500">
+                  选择文件或填写外部音频链接。
+                </p>
+              </div>
+            </div>
+            <TextField
+              label="歌曲名"
+              onChange={setMusicTitle}
+              value={musicTitle}
+            />
+            <TextField
+              label="歌手"
+              onChange={setMusicArtist}
+              value={musicArtist}
+            />
+            <label className="mt-4 block text-sm font-medium">
+              分类
+              <select
+                className="mt-2 h-10 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-mint"
+                onChange={event =>
+                  setMusicCategoryId(event.target.value as MusicCategoryId)
+                }
+                value={musicCategoryId}
+              >
+                {musicCategories.length ? (
+                  musicCategories.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name['zh-CN']}
+                    </option>
+                  ))
+                ) : (
+                  <option value={musicCategoryId}>
+                    {getAdminMusicCategoryLabel(
+                      musicCategoryId,
+                      musicCategories,
+                    )}
+                  </option>
+                )}
+              </select>
+            </label>
+            <TextField
+              label="专辑"
+              onChange={setMusicAlbum}
+              value={musicAlbum}
+            />
+            <TextField
+              label="封面 URL"
+              onChange={setMusicCover}
+              value={musicCover}
+            />
+            <TextField
+              label="外部音频 URL"
+              onChange={setMusicUrl}
+              value={musicUrl}
+            />
+            <label className="mt-4 block text-sm font-medium">
+              上传文件
+              <input
+                accept="audio/*"
+                className="mt-2 block w-full rounded-lg border border-line px-3 py-2 text-sm"
+                onChange={event =>
+                  setMusicFile(event.target.files?.[0] ?? null)
+                }
+                type="file"
+              />
+            </label>
+            {musicFile ? (
+              <p className="mt-2 text-xs text-slate-500">
+                已选择：{musicFile.name}
+              </p>
+            ) : null}
+            {createMessage ? (
+              <p className="mt-3 text-sm text-mint">{createMessage}</p>
+            ) : null}
+            <button
+              className="mt-5 h-11 w-full rounded-lg bg-coral px-4 text-sm font-semibold text-white"
+              type="submit"
+            >
+              保存音乐
+            </button>
+          </form>
+        ) : null}
+      </div>
+
+      {selectedTrack ? (
+        <MusicDetailModal
+          categories={musicCategories}
+          onClose={() => setSelectedTrack(null)}
+          onDelete={async track => {
+            await onDeleteMusic(track);
+            setSelectedTrack(null);
+          }}
+          onUpdate={async (musicId, body) => {
+            const updated = await onUpdateMusic(musicId, body);
+            setSelectedTrack(updated);
+            return updated;
+          }}
+          track={selectedTrack}
+        />
+      ) : null}
     </section>
   );
 }
 
-const apiAudienceSections: Array<{ audience: ApiAudience; body: string; title: string }> = [
+function MusicDetailModal({
+  categories,
+  onClose,
+  onDelete,
+  onUpdate,
+  track,
+}: {
+  categories: MusicCategory[];
+  onClose: () => void;
+  onDelete: (track: FavoriteMusic) => Promise<void>;
+  onUpdate: (musicId: string, body: CreateMusicBody) => Promise<FavoriteMusic>;
+  track: FavoriteMusic;
+}) {
+  const [album, setAlbum] = useState(track.album ?? '');
+  const [artist, setArtist] = useState(track.artist);
+  const [audioUrl, setAudioUrl] = useState(track.audioUrl ?? '');
+  const [categoryId, setCategoryId] = useState<MusicCategoryId>(
+    track.categoryId,
+  );
+  const [cover, setCover] = useState(track.cover ?? '');
+  const [deletePending, setDeletePending] = useState(false);
+  const [message, setMessage] = useState('');
+  const [platform, setPlatform] = useState(track.platform ?? '');
+  const [saving, setSaving] = useState(false);
+  const [title, setTitle] = useState(track.title);
+  const [url, setUrl] = useState(track.url ?? track.audioUrl ?? '');
+
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage('');
+    setSaving(true);
+
+    try {
+      const updated = await onUpdate(track.id, {
+        album: album || undefined,
+        artist,
+        audioUrl: audioUrl || undefined,
+        categoryId,
+        cover: cover || undefined,
+        platform: platform || undefined,
+        title,
+        url: url || undefined,
+      });
+      setTitle(updated.title);
+      setArtist(updated.artist);
+      setAlbum(updated.album ?? '');
+      setCover(updated.cover ?? '');
+      setAudioUrl(updated.audioUrl ?? '');
+      setPlatform(updated.platform ?? '');
+      setUrl(updated.url ?? updated.audioUrl ?? '');
+      setCategoryId(updated.categoryId);
+      setMessage('音乐详情已保存。');
+    } catch {
+      setMessage('保存失败，请稍后再试。');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setMessage('');
+
+    if (!window.confirm(`确认删除音乐《${track.title}》吗？`)) {
+      return;
+    }
+
+    setDeletePending(true);
+
+    try {
+      await onDelete(track);
+    } catch {
+      setMessage('删除失败，请稍后再试。');
+      setDeletePending(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 px-4 py-6">
+      <form
+        className="max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-lg border border-line bg-panel shadow-panel"
+        onSubmit={handleSave}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+              音乐详情
+            </p>
+            <h2 className="truncate text-lg font-semibold">{track.title}</h2>
+          </div>
+          <button
+            className="grid h-9 w-9 place-items-center rounded-lg border border-line text-slate-500 transition hover:bg-slate-50"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">关闭</span>
+          </button>
+        </div>
+
+        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <section className="space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <CompactTextField
+                label="歌曲名"
+                onChange={setTitle}
+                value={title}
+              />
+              <CompactTextField
+                label="歌手"
+                onChange={setArtist}
+                value={artist}
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <CompactTextField
+                label="专辑"
+                onChange={setAlbum}
+                value={album}
+              />
+              <CompactTextField
+                label="平台"
+                onChange={setPlatform}
+                value={platform}
+              />
+            </div>
+            <CompactTextField
+              label="封面 URL"
+              onChange={setCover}
+              value={cover}
+            />
+            <CompactTextField
+              label="音频 URL"
+              onChange={setAudioUrl}
+              value={audioUrl}
+            />
+            <CompactTextField label="来源 URL" onChange={setUrl} value={url} />
+          </section>
+
+          <aside className="space-y-3">
+            <div className="rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-500">
+              <p>ID：{track.id}</p>
+              <p>来源：{getMusicSourceLabel(track.source)}</p>
+              <p>创建时间：{track.createdAt.slice(0, 10)}</p>
+              <p>
+                分类：{getAdminMusicCategoryLabel(track.categoryId, categories)}
+              </p>
+            </div>
+            {cover ? (
+              <img
+                alt={title}
+                className="aspect-[2/1] w-full rounded-lg border border-line object-cover"
+                src={resolveMediaUrl(cover)}
+              />
+            ) : null}
+            {audioUrl ? (
+              <audio
+                className="w-full"
+                controls
+                preload="none"
+                src={resolveMediaUrl(audioUrl)}
+              />
+            ) : (
+              <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+                暂无可播放音频。
+              </p>
+            )}
+            <label className="block text-sm font-medium">
+              分类
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={event =>
+                  setCategoryId(event.target.value as MusicCategoryId)
+                }
+                value={categoryId}
+              >
+                {categories.length ? (
+                  categories.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name['zh-CN']}
+                    </option>
+                  ))
+                ) : (
+                  <option value={categoryId}>
+                    {getAdminMusicCategoryLabel(categoryId, categories)}
+                  </option>
+                )}
+              </select>
+            </label>
+            {message ? (
+              <p className="text-sm font-medium text-brand">{message}</p>
+            ) : null}
+          </aside>
+        </div>
+
+        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-line bg-panel px-4 py-3 sm:flex-row sm:justify-between">
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-coral/30 px-4 text-sm font-semibold text-coral transition hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={deletePending || saving}
+            onClick={handleDelete}
+            type="button"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            {deletePending ? '删除中...' : '删除音乐'}
+          </button>
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={saving || deletePending}
+            type="submit"
+          >
+            <Save className="h-4 w-4" aria-hidden="true" />
+            {saving ? '保存中...' : '保存修改'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+const apiAudienceSections: Array<{
+  audience: ApiAudience;
+  body: string;
+  title: string;
+}> = [
   {
     audience: 'web',
     body: '前台页面、注册登录、文章、音乐播放与投稿会使用这些接口。',
@@ -1928,15 +2955,17 @@ const apiAudienceSections: Array<{ audience: ApiAudience; body: string; title: s
 
 function ApiConfigPage({ endpoints }: { endpoints: ApiEndpointInfo[] }) {
   const webCount = useMemo(
-    () => endpoints.filter((endpoint) => endpoint.audiences.includes('web')).length,
+    () =>
+      endpoints.filter(endpoint => endpoint.audiences.includes('web')).length,
     [endpoints],
   );
   const adminCount = useMemo(
-    () => endpoints.filter((endpoint) => endpoint.audiences.includes('admin')).length,
+    () =>
+      endpoints.filter(endpoint => endpoint.audiences.includes('admin')).length,
     [endpoints],
   );
   const sharedCount = useMemo(
-    () => endpoints.filter((endpoint) => endpoint.audiences.length > 1).length,
+    () => endpoints.filter(endpoint => endpoint.audiences.length > 1).length,
     [endpoints],
   );
   const endpointReferenceCount = webCount + adminCount;
@@ -1948,7 +2977,8 @@ function ApiConfigPage({ endpoints }: { endpoints: ApiEndpointInfo[] }) {
           <div>
             <h2 className="text-lg font-semibold">接口配置详情</h2>
             <p className="mt-1 text-sm text-slate-500">
-              唯一接口按真实路径去重；Web/Admin 数量是端侧引用数，共用接口会在两边各出现一次。
+              唯一接口按真实路径去重；Web/Admin
+              数量是端侧引用数，共用接口会在两边各出现一次。
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-4 lg:min-w-[34rem]">
@@ -1959,13 +2989,17 @@ function ApiConfigPage({ endpoints }: { endpoints: ApiEndpointInfo[] }) {
           </div>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          当前有 {sharedCount} 个共用接口，所以 Web {webCount} + Admin {adminCount} = {endpointReferenceCount}，唯一接口数为 {endpoints.length}。
+          当前有 {sharedCount} 个共用接口，所以 Web {webCount} + Admin{' '}
+          {adminCount} = {endpointReferenceCount}，唯一接口数为{' '}
+          {endpoints.length}。
         </p>
       </div>
 
-      {apiAudienceSections.map((section) => (
+      {apiAudienceSections.map(section => (
         <ApiEndpointSection
-          endpoints={endpoints.filter((endpoint) => endpoint.audiences.includes(section.audience))}
+          endpoints={endpoints.filter(endpoint =>
+            endpoint.audiences.includes(section.audience),
+          )}
           key={section.audience}
           {...section}
         />
@@ -1998,7 +3032,9 @@ function ApiEndpointSection({
     <section className="rounded-lg border border-line bg-panel p-4 shadow-panel">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">{audience}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+            {audience}
+          </p>
           <h2 className="mt-1 text-lg font-semibold">{title}</h2>
           <p className="mt-1 text-sm text-slate-500">{body}</p>
         </div>
@@ -2008,17 +3044,23 @@ function ApiEndpointSection({
       </div>
 
       <div className="mt-4 overflow-hidden rounded-lg border border-line">
-        {endpoints.map((endpoint) => (
+        {endpoints.map(endpoint => (
           <article
             className="grid gap-2 border-b border-line px-3 py-2.5 last:border-b-0 xl:grid-cols-[88px_minmax(0,1.15fr)_120px_120px_minmax(0,1.4fr)] xl:items-center"
             key={`${audience}-${endpoint.id}`}
           >
-            <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${getMethodClass(endpoint.method)}`}>
+            <span
+              className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${getMethodClass(
+                endpoint.method,
+              )}`}
+            >
               {endpoint.method}
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-ink">{endpoint.title}</p>
-              <p className="mt-1 break-all font-mono text-xs text-slate-500">{endpoint.path}</p>
+              <p className="mt-1 break-all font-mono text-xs text-slate-500">
+                {endpoint.path}
+              </p>
             </div>
             <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
               {endpoint.module}
@@ -2026,7 +3068,9 @@ function ApiEndpointSection({
             <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
               {getAuthLabel(endpoint.auth)}
             </span>
-            <p className="text-sm leading-6 text-slate-500">{endpoint.description}</p>
+            <p className="text-sm leading-6 text-slate-500">
+              {endpoint.description}
+            </p>
           </article>
         ))}
       </div>
@@ -2077,7 +3121,7 @@ function TextField({
       {label}
       <input
         className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         type={type}
         value={value}
       />
@@ -2099,7 +3143,7 @@ function TextAreaField({
       {label}
       <textarea
         className="mt-2 min-h-24 w-full resize-none rounded-lg border border-line px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-        onChange={(event) => onChange(event.target.value)}
+        onChange={event => onChange(event.target.value)}
         value={value}
       />
     </label>
@@ -2114,7 +3158,8 @@ function StatusBadge({ state }: { state: LoadState }) {
     error: '后端未启动',
   }[state];
 
-  const color = state === 'ready' ? 'bg-mint' : state === 'error' ? 'bg-coral' : 'bg-amber';
+  const color =
+    state === 'ready' ? 'bg-mint' : state === 'error' ? 'bg-coral' : 'bg-amber';
 
   return (
     <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm font-semibold">
@@ -2144,17 +3189,31 @@ function MetricCard({
 
   return (
     <article className="rounded-lg border border-line bg-panel p-4 shadow-panel">
-      <span className={`grid h-10 w-10 place-items-center rounded-lg text-white ${colorClass}`}>{icon}</span>
+      <span
+        className={`grid h-10 w-10 place-items-center rounded-lg text-white ${colorClass}`}
+      >
+        {icon}
+      </span>
       <p className="mt-5 text-sm text-slate-500">{label}</p>
       <p className="mt-1 text-3xl font-semibold">{value}</p>
     </article>
   );
 }
 
-function ModuleHint({ body, icon, title }: { body: string; icon: ReactNode; title: string }) {
+function ModuleHint({
+  body,
+  icon,
+  title,
+}: {
+  body: string;
+  icon: ReactNode;
+  title: string;
+}) {
   return (
     <article className="rounded-lg border border-line p-4">
-      <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-brand">{icon}</span>
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-brand">
+        {icon}
+      </span>
       <h3 className="mt-4 font-semibold">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-500">{body}</p>
     </article>

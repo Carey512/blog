@@ -303,6 +303,26 @@ const endpointCatalog: ApiEndpointInfo[] = [
     auth: 'user',
     audiences: ['admin'],
   },
+  {
+    id: 'music-update',
+    method: 'PUT',
+    path: '/api/music/:musicId',
+    title: '更新音乐',
+    description: '管理员更新音乐标题、歌手、专辑、分类、封面和来源。',
+    module: 'music',
+    auth: 'admin',
+    audiences: ['admin'],
+  },
+  {
+    id: 'music-delete',
+    method: 'DELETE',
+    path: '/api/music/:musicId',
+    title: '删除音乐',
+    description: '管理员删除指定音乐记录。',
+    module: 'music',
+    auth: 'admin',
+    audiences: ['admin'],
+  },
 ];
 
 function hashPassword(password: string) {
@@ -1184,32 +1204,58 @@ server.delete<{ Params: { docId: string } }>('/api/docs/:docId', async (request,
   };
 });
 
-server.get<{ Params: { file: string } }>('/docs-html/:file', async (request, reply) => {
-  const file = decodeURIComponent(request.params.file);
+async function readAllowedDocHtml(fileParam: string, reply: FastifyReply) {
+  const file = decodeURIComponent(fileParam);
   const allowed = docs.some((doc) => doc.htmlFile === file);
   const safeFile = file.endsWith('.html') && !file.includes('/') && !file.includes('\\') && !file.includes('..');
 
   if (!allowed || !safeFile) {
-    return reply.code(404).send({
+    reply.code(404).send({
       message: 'Document html not found',
     });
+    return null;
   }
 
   try {
-    const html = await readFile(join(docsHtmlRoot, file), 'utf8');
-
-    reply.header('Cache-Control', 'public, max-age=60');
-    reply.type('text/html; charset=utf-8');
-    return html;
+    return {
+      file,
+      html: await readFile(join(docsHtmlRoot, file), 'utf8'),
+    };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return reply.code(404).send({
+      reply.code(404).send({
         message: 'Document html not found',
       });
+      return null;
     }
 
     throw error;
   }
+}
+
+server.get<{ Params: { file: string } }>('/docs-html/:file/download', async (request, reply) => {
+  const result = await readAllowedDocHtml(request.params.file, reply);
+
+  if (!result) {
+    return reply;
+  }
+
+  reply.header('Cache-Control', 'private, max-age=0');
+  reply.header('Content-Disposition', `attachment; filename="${encodeURIComponent(result.file)}"`);
+  reply.type('text/html; charset=utf-8');
+  return result.html;
+});
+
+server.get<{ Params: { file: string } }>('/docs-html/:file', async (request, reply) => {
+  const result = await readAllowedDocHtml(request.params.file, reply);
+
+  if (!result) {
+    return reply;
+  }
+
+  reply.header('Cache-Control', 'public, max-age=60');
+  reply.type('text/html; charset=utf-8');
+  return result.html;
 });
 
 server.get<{ Querystring: { status?: PostStatus } }>('/api/posts', async (request): Promise<ApiPost[]> => {
@@ -1451,6 +1497,81 @@ server.post('/api/music/upload', async (request, reply): Promise<FavoriteMusic> 
   await saveMusic();
   reply.code(201);
   return track;
+});
+
+server.put<{ Body: CreateMusicBody; Params: { musicId: string } }>(
+  '/api/music/:musicId',
+  async (request, reply): Promise<FavoriteMusic> => {
+    const user = requireAuthenticatedUser(request, reply);
+
+    if (!user) {
+      return undefined as never;
+    }
+
+    if (user.role !== 'admin') {
+      return reply.code(403).send({
+        message: 'Admin role is required',
+      } as never);
+    }
+
+    const index = favoriteMusic.findIndex((track) => track.id === request.params.musicId);
+
+    if (index < 0) {
+      return reply.code(404).send({
+        message: 'Music not found',
+      } as never);
+    }
+
+    const previous = favoriteMusic[index];
+    const audioUrl = request.body.audioUrl || previous.audioUrl;
+    const updated: FavoriteMusic = {
+      ...previous,
+      album: request.body.album || undefined,
+      artist: request.body.artist,
+      audioUrl,
+      categoryId: normalizeMusicCategory(request.body.categoryId, previous.categoryId),
+      cover: request.body.cover || undefined,
+      platform: request.body.platform || previous.platform,
+      source: audioUrl?.startsWith('/uploads/') ? 'upload' : 'external',
+      title: request.body.title,
+      url: request.body.url || audioUrl || previous.url,
+    };
+
+    favoriteMusic[index] = updated;
+    await saveMusic();
+
+    return updated;
+  },
+);
+
+server.delete<{ Params: { musicId: string } }>('/api/music/:musicId', async (request, reply) => {
+  const user = requireAuthenticatedUser(request, reply);
+
+  if (!user) {
+    return undefined as never;
+  }
+
+  if (user.role !== 'admin') {
+    return reply.code(403).send({
+      message: 'Admin role is required',
+    });
+  }
+
+  const target = favoriteMusic.find((track) => track.id === request.params.musicId);
+
+  if (!target) {
+    return reply.code(404).send({
+      message: 'Music not found',
+    });
+  }
+
+  favoriteMusic = favoriteMusic.filter((track) => track.id !== target.id);
+  await saveMusic();
+
+  return {
+    deletedMusic: target,
+    ok: true,
+  };
 });
 
 const port = Number(process.env.PORT ?? 4000);
