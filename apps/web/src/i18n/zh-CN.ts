@@ -48,6 +48,7 @@ export const zhCNMessages: LocaleMessages = {
   passwordLabel: '密码',
   protectedAction: '需要 token',
   readMore: '阅读全文',
+  readOriginal: '阅读原文',
   registerAction: '创建账号',
   registerError: '注册失败，请使用新的邮箱，密码至少 6 位。',
   registerIntro: '创建作者账号后，可以在前台投稿并执行需要登录的操作。',

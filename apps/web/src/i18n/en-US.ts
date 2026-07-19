@@ -48,6 +48,7 @@ export const enUSMessages: LocaleMessages = {
   passwordLabel: 'Password',
   protectedAction: 'Token required',
   readMore: 'Read article',
+  readOriginal: 'Read original',
   registerAction: 'Create account',
   registerError: 'Registration failed. Use a new email and a password with at least 6 characters.',
   registerIntro: 'Create an author account, then submit articles from the public site.',

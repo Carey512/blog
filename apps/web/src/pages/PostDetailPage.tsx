@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { PostMeta } from '../components/PostMeta';
@@ -99,6 +99,17 @@ export function PostDetailPage() {
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
+          {post.externalUrl ? (
+            <a
+              className="mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              href={post.externalUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {t.readOriginal}
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            </a>
+          ) : null}
         </div>
       </article>
     </main>

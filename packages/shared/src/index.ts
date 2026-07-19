@@ -72,9 +72,13 @@ export type ApiPost = {
   status: PostStatus;
   featured?: boolean;
   cover: string;
+  externalUrl?: string;
   publishedAt: string;
   date: string;
   readingMinutes: number;
+  sourceId?: string;
+  sourceName?: string;
+  sourceUrl?: string;
   content: Record<Locale, LocalizedPostContent>;
 };
 

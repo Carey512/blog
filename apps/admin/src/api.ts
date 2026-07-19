@@ -80,6 +80,13 @@ export const adminApi = {
     return request<ApiPost[]>('/api/posts');
   },
 
+  refreshPosts(token: string) {
+    return request<{ ok: boolean; posts: ApiPost[]; refreshedAt: string }>('/api/posts/refresh', {
+      headers: authorizationHeader(token),
+      method: 'POST',
+    });
+  },
+
   users(token: string, query = '') {
     const params = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
     return request<User[]>(`/api/users${params}`, {

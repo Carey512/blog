@@ -4,6 +4,7 @@ dist
 apps/*/dist
 apps/*/.vite
 apps/*/uploads
+apps/server/data/subscribed-posts.json
 apps/server/data/users.json
 packages/*/dist
 *.tsbuildinfo
