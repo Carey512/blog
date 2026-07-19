@@ -41,12 +41,12 @@ const musicUploadDir = join(uploadRoot, 'music');
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const dataRoot = join(moduleDir, '..', 'data');
 const aboutCardsStorePath = join(dataRoot, 'about-cards.json');
-const categoriesStorePath = join(dataRoot, 'categories.json');
 const docsHtmlRoot = join(dataRoot, 'docs-html');
 const docsStorePath = join(dataRoot, 'docs.json');
 const musicStorePath = join(dataRoot, 'music.json');
 const postsStorePath = join(dataRoot, 'uploaded-posts.json');
 const usersStorePath = join(dataRoot, 'users.json');
+const authTokenPrefix = 'blog-token-';
 
 type UserAccount = User & {
   createdAt: string;
@@ -129,10 +129,10 @@ const endpointCatalog: ApiEndpointInfo[] = [
     method: 'GET',
     path: '/api/categories',
     title: '文章分类',
-    description: '前台读取文章分类和多语言分类名称。',
+    description: '读取文章分类和多语言分类名称。',
     module: 'categories',
     auth: 'public',
-    audiences: ['web'],
+    audiences: ['web', 'admin'],
   },
   {
     id: 'about-cards',
@@ -362,11 +362,11 @@ function getAuthenticatedUser(request: FastifyRequest): User | undefined {
 
   const token = authorization.slice('Bearer '.length).trim();
 
-  if (!token.startsWith('demo-token-')) {
+  if (!token.startsWith(authTokenPrefix)) {
     return undefined;
   }
 
-  const userId = token.slice('demo-token-'.length);
+  const userId = token.slice(authTokenPrefix.length);
   const account = userAccounts.find((user) => user.id === userId);
   return account ? toPublicUser(account) : undefined;
 }
@@ -410,7 +410,6 @@ async function loadAboutCards() {
     }
 
     aboutCards = [];
-    await saveAboutCards();
   }
 }
 
@@ -419,23 +418,7 @@ async function saveAboutCards() {
 }
 
 async function loadCategories() {
-  await mkdir(dataRoot, { recursive: true });
-
-  try {
-    const content = await readFile(categoriesStorePath, 'utf8');
-    categories = JSON.parse(content) as Category[];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
-
-    categories = [];
-    await saveCategories();
-  }
-}
-
-async function saveCategories() {
-  await writeFile(categoriesStorePath, `${JSON.stringify(categories, null, 2)}\n`, 'utf8');
+  categories = [];
 }
 
 async function loadDocs() {
@@ -450,7 +433,6 @@ async function loadDocs() {
     }
 
     docs = [];
-    await saveDocs();
   }
 }
 
@@ -723,7 +705,6 @@ async function loadPosts() {
     }
 
     posts = [];
-    await savePosts();
   }
 }
 
@@ -761,7 +742,6 @@ async function loadMusic() {
     }
 
     favoriteMusic = [];
-    await saveMusic();
   }
 }
 
@@ -780,25 +760,26 @@ async function loadUsers() {
       throw error;
     }
 
-    userAccounts = [
-      {
-        createdAt: '2026-07-12T00:00:00.000Z',
-        email: 'admin@example.com',
-        id: 'u_admin',
-        name: 'Admin',
-        passwordHash: hashPassword('admin123'),
-        role: 'admin',
-      },
-      {
-        createdAt: '2026-07-12T00:00:00.000Z',
-        email: 'author@example.com',
-        id: 'u_author',
-        name: 'Author',
-        passwordHash: hashPassword('author123'),
-        role: 'author',
-      },
-    ];
-    await saveUsers();
+    const adminEmail = process.env.ADMIN_EMAIL?.trim();
+    const adminPassword = process.env.ADMIN_PASSWORD?.trim();
+    const adminName = process.env.ADMIN_NAME?.trim() || 'Admin';
+
+    if (adminEmail && adminPassword) {
+      userAccounts = [
+        {
+          createdAt: new Date().toISOString(),
+          email: normalizeEmail(adminEmail),
+          id: 'u_admin',
+          name: adminName,
+          passwordHash: hashPassword(adminPassword),
+          role: 'admin',
+        },
+      ];
+      await saveUsers();
+      return;
+    }
+
+    userAccounts = [];
   }
 }
 
@@ -849,7 +830,7 @@ server.post<{ Body: AuthLoginBody }>('/api/auth/login', async (request, reply): 
   }
 
   return {
-    token: `demo-token-${account.id}`,
+    token: `${authTokenPrefix}${account.id}`,
     user: toPublicUser(account),
   };
 });
@@ -886,7 +867,7 @@ server.post<{ Body: AuthRegisterBody }>('/api/auth/register', async (request, re
 
   reply.code(201);
   return {
-    token: `demo-token-${account.id}`,
+    token: `${authTokenPrefix}${account.id}`,
     user: toPublicUser(account),
   };
 });
@@ -1260,9 +1241,7 @@ server.post<{ Body: CreatePostBody }>('/api/posts', async (request, reply): Prom
     authorId: user.id,
     categoryId: request.body.categoryId,
     content: request.body.content,
-    cover:
-      request.body.cover ||
-      'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1400&q=85',
+    cover: request.body.cover?.trim() || undefined,
     date: now.toISOString().slice(0, 10),
     featured: request.body.featured ?? false,
     publishedAt: now.toISOString().slice(0, 10),
@@ -1311,10 +1290,7 @@ server.put<{ Body: UpdatePostBody; Params: { postId: string } }>(
       ...previous,
       categoryId: request.body.categoryId,
       content: request.body.content,
-      cover:
-        request.body.cover ||
-        previous.cover ||
-        'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1400&q=85',
+      cover: request.body.cover?.trim() || undefined,
       date: nextPublishedAt,
       featured: request.body.featured ?? previous.featured ?? false,
       publishedAt: nextPublishedAt,

@@ -4,6 +4,11 @@ dist
 apps/*/dist
 apps/*/.vite
 apps/*/uploads
+apps/server/data/about-cards.json
+apps/server/data/docs-html/
+apps/server/data/docs.json
+apps/server/data/music.json
+apps/server/data/posts.json
 apps/server/data/uploaded-posts.json
 apps/server/data/users.json
 packages/*/dist
@@ -11,6 +16,7 @@ packages/*/dist
 dev-server.*
 dev-*.log
 dev-*.err
+.logs/
 .env
 .env.*
 !.env.example

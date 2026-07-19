@@ -64,7 +64,7 @@ export function AboutPage() {
         <section className="mt-8 rounded-lg border border-dashed border-border bg-surface px-6 py-10 text-center text-muted">
           {loading ? t.loadingPosts : t.loadPostsError}
         </section>
-      ) : (
+      ) : cards.length ? (
         <section className="mt-8 grid gap-5 md:grid-cols-3">
           {cards.map((card) => {
             const Icon = iconMap[card.icon];
@@ -79,6 +79,10 @@ export function AboutPage() {
               </article>
             );
           })}
+        </section>
+      ) : (
+        <section className="mt-8 rounded-lg border border-dashed border-border bg-surface px-6 py-10 text-center text-sm text-muted">
+          {locale === 'zh-CN' ? '暂无关于页内容。' : 'No about content yet.'}
         </section>
       )}
     </main>

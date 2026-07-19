@@ -85,9 +85,11 @@ export function PostDetailPage() {
       </Link>
 
       <article className="mt-6 overflow-hidden rounded-lg border border-border bg-surface shadow-soft">
-        <div className="aspect-[16/8] bg-surface-muted">
-          <img alt={translated.title} className="h-full w-full object-cover" src={post.cover} />
-        </div>
+        {post.cover ? (
+          <div className="aspect-[16/8] bg-surface-muted">
+            <img alt={translated.title} className="h-full w-full object-cover" src={post.cover} />
+          </div>
+        ) : null}
         <div className="p-5 sm:p-8">
           <PostMeta locale={locale} post={post} />
           <h1 className="mt-5 text-4xl font-semibold leading-tight text-foreground sm:text-5xl">

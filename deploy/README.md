@@ -68,21 +68,29 @@ http://SERVER_IP/
 http://SERVER_IP/admin/
 ```
 
-Default admin account:
+Initial admin account:
 
 ```text
-admin@example.com
-admin123
+Set ADMIN_EMAIL and ADMIN_PASSWORD before the first deployment, or keep the existing production users.json.
+```
+
+Create a server-side `.env` file when you need to initialize the first admin:
+
+```env
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
+ADMIN_NAME=Admin
 ```
 
 ## Data Persistence
 
-The compose file keeps data in Docker volumes:
+The compose file keeps runtime data in mounted directories:
 
-- `server_data`: users, posts, music JSON data
-- `server_uploads`: uploaded music files
+- `apps/server/data`: users, posts, docs, music JSON data
+- `apps/server/uploads`: uploaded music files
 
-Do not delete these volumes unless you intentionally want to clear production data.
+Do not delete these directories unless you intentionally want to clear production data.
+Runtime JSON files are ignored by Git. Missing JSON files are initialized as empty runtime data where needed.
 
 ## Update Deployment
 

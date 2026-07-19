@@ -673,8 +673,8 @@ function IpLookupToolCard({ locale }: { locale: Locale }) {
 function QrCodeToolCard({ locale }: { locale: Locale }) {
   const t = messages[locale];
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
-  const [contactEmail, setContactEmail] = useState('hello@example.com');
-  const [contactName, setContactName] = useState('Echo Journal');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
@@ -685,8 +685,8 @@ function QrCodeToolCard({ locale }: { locale: Locale }) {
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [qrSvg, setQrSvg] = useState('');
   const [size, setSize] = useState(280);
-  const [textValue, setTextValue] = useState('Echo Journal');
-  const [urlValue, setUrlValue] = useState(() => getInitialQrUrl());
+  const [textValue, setTextValue] = useState('');
+  const [urlValue, setUrlValue] = useState('');
   const [wifiEncryption, setWifiEncryption] = useState('WPA');
   const [wifiPassword, setWifiPassword] = useState('');
   const [wifiSsid, setWifiSsid] = useState('');
@@ -723,12 +723,12 @@ function QrCodeToolCard({ locale }: { locale: Locale }) {
   ];
 
   useEffect(() => {
-    void generateQr();
+    void generateQr(false);
   }, [backgroundColor, errorLevel, foregroundColor, margin, payload, size]);
 
-  async function generateQr() {
+  async function generateQr(showEmptyError = true) {
     if (!payload.trim()) {
-      setError(t.qrEmptyValue);
+      setError(showEmptyError ? t.qrEmptyValue : '');
       setQrDataUrl('');
       setQrSvg('');
       return;
@@ -764,16 +764,16 @@ function QrCodeToolCard({ locale }: { locale: Locale }) {
 
   function resetQr() {
     setBackgroundColor('#ffffff');
-    setContactEmail('hello@example.com');
-    setContactName('Echo Journal');
+    setContactEmail('');
+    setContactName('');
     setContactPhone('');
     setErrorLevel('M');
     setForegroundColor('#111827');
     setMargin(2);
     setMode('url');
     setSize(280);
-    setTextValue('Echo Journal');
-    setUrlValue(getInitialQrUrl());
+    setTextValue('');
+    setUrlValue('');
     setWifiEncryption('WPA');
     setWifiPassword('');
     setWifiSsid('');
@@ -903,7 +903,7 @@ function QrCodeToolCard({ locale }: { locale: Locale }) {
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <button
                 className="inline-flex h-10 min-w-36 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
-                onClick={() => void generateQr()}
+                onClick={() => void generateQr(true)}
                 type="button"
               >
                 <QrCode className="h-4 w-4" aria-hidden="true" />
@@ -1144,14 +1144,6 @@ function normalizeQrUrl(value: string) {
 
 function escapeWifiValue(value: string) {
   return value.replace(/([\\;,:"])/g, '\\$1');
-}
-
-function getInitialQrUrl() {
-  if (typeof window === 'undefined') {
-    return 'https://example.com';
-  }
-
-  return window.location.origin;
 }
 
 function downloadDataUrl(dataUrl: string, filename: string) {

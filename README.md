@@ -25,11 +25,23 @@ blog/
 
 ```txt
 admin 新建文章
-  -> server /api/posts 保存到后端内存数据
+  -> server /api/posts 保存到后端 JSON 数据
   -> web /api/posts?status=published 读取已发布文章
 ```
 
-当前后端数据仍是内存数据，重启服务会恢复到种子文章。下一步可以接入 SQLite/PostgreSQL 持久化。
+当前后端使用 JSON 文件做临时持久化，默认不再内置示例文章。下一步建议接入 SQLite/PostgreSQL。
+
+运行时内容数据不再提交到 Git，包括：
+
+- `apps/server/data/about-cards.json`
+- `apps/server/data/docs.json`
+- `apps/server/data/docs-html/`
+- `apps/server/data/music.json`
+- `apps/server/data/posts.json`
+- `apps/server/data/uploaded-posts.json`
+- `apps/server/data/users.json`
+
+分类接口不再依赖本地分类文件，目前 `/api/categories` 返回空数组，后续可改为读取数据库或分类管理接口。
 
 ## 当前音乐数据流
 
@@ -39,7 +51,7 @@ admin 音乐管理上传文件或添加外部音频链接
   -> web /music 调用 /api/music 搜索、播放音乐
 ```
 
-上传文件当前保存在 `apps/server/uploads/music`，该目录是运行时文件，已加入 `.gitignore`。
+音乐数据默认不再内置示例歌曲。上传文件当前保存在 `apps/server/uploads/music`，该目录是运行时文件，已加入 `.gitignore`。
 
 ## 启动
 
@@ -84,11 +96,10 @@ npm run dev:admin
 后台音乐：http://localhost:5174/music
 ```
 
-管理后台演示账号：
+管理后台账号：
 
 ```txt
-admin@example.com
-admin123
+由线上服务器的用户数据或 ADMIN_EMAIL / ADMIN_PASSWORD 环境变量初始化。
 ```
 
 ## 构建

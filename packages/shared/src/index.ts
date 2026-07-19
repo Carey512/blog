@@ -71,7 +71,7 @@ export type ApiPost = {
   authorId: string;
   status: PostStatus;
   featured?: boolean;
-  cover: string;
+  cover?: string;
   publishedAt: string;
   date: string;
   readingMinutes: number;

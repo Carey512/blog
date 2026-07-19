@@ -11,10 +11,10 @@ export function LoginPage() {
   const t = messages[locale];
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [email, setEmail] = useState('author@example.com');
+  const [email, setEmail] = useState('');
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
-  const [password, setPassword] = useState('author123');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const redirectTo = searchParams.get('redirect') ?? '/articles';

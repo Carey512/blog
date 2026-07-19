@@ -364,12 +364,18 @@ function HomeArticleCard({ locale, post }: { locale: Locale; post: Post }) {
         className="block aspect-[2/1] overflow-hidden bg-surface-muted"
         to={`/posts/${post.id}`}
       >
-        <img
-          alt={translated.title}
-          className="h-full w-full object-cover"
-          loading="lazy"
-          src={post.cover}
-        />
+        {post.cover ? (
+          <img
+            alt={translated.title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            src={post.cover}
+          />
+        ) : (
+          <div className="grid h-full place-items-center px-3 text-center text-xs font-semibold leading-5 text-muted">
+            {translated.title}
+          </div>
+        )}
       </Link>
       <div className="p-2.5">
         <p className="truncate text-xs font-semibold text-primary">

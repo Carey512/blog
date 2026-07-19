@@ -47,6 +47,7 @@ import type {
   ApiEndpointInfo,
   ApiPost,
   AuthLoginResponse,
+  Category,
   CreateMusicBody,
   CreatePostBody,
   FavoriteMusic,
@@ -100,9 +101,9 @@ function AdminAuthGate() {
   );
   const [captcha, setCaptcha] = useState(() => createCaptcha());
   const [captchaInput, setCaptchaInput] = useState('');
-  const [email, setEmail] = useState('admin@example.com');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   function refreshCaptcha() {
@@ -267,6 +268,7 @@ function AdminConsole({
   const [docActionMessage, setDocActionMessage] = useState('');
   const [overviewItems, setOverviewItems] = useState<AdminOverviewItem[]>([]);
   const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [articleCategories, setArticleCategories] = useState<Category[]>([]);
   const [music, setMusic] = useState<FavoriteMusic[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loadedData, setLoadedData] = useState<Record<AdminDataKey, boolean>>({
@@ -289,7 +291,7 @@ function AdminConsole({
   const [postExcerptEn, setPostExcerptEn] = useState(
     'This post comes from the admin app and appears on the public site after publishing.',
   );
-  const [postCategoryId, setPostCategoryId] = useState<PostCategoryId>('notes');
+  const [postCategoryId, setPostCategoryId] = useState<PostCategoryId | ''>('');
   const [createPostMessage, setCreatePostMessage] = useState('');
   const [postActionMessage, setPostActionMessage] = useState('');
 
@@ -329,8 +331,17 @@ function AdminConsole({
 
     try {
       setServerState('loading');
-      const postList = await adminApi.posts();
+      const [postList, categoryList] = await Promise.all([
+        adminApi.posts(),
+        adminApi.categories().catch(() => []),
+      ]);
       setPosts(postList);
+      setArticleCategories(categoryList);
+      setPostCategoryId(current =>
+        current && categoryList.some(category => category.id === current)
+          ? current
+          : categoryList[0]?.id ?? '',
+      );
       markDataLoaded('articles');
       setServerState('ready');
     } catch {
@@ -499,6 +510,11 @@ function AdminConsole({
     event.preventDefault();
     setCreatePostMessage('');
     setPostActionMessage('');
+
+    if (!postCategoryId) {
+      setCreatePostMessage('暂无文章分类，请先让分类接口返回数据。');
+      return;
+    }
 
     const body: CreatePostBody = {
       categoryId: postCategoryId,
@@ -751,6 +767,7 @@ function AdminConsole({
               element={
                 <ArticlesAdminPage
                   actionMessage={postActionMessage}
+                  categories={articleCategories}
                   createMessage={createPostMessage}
                   onCreatePost={handleCreatePost}
                   onDeletePost={handleDeletePost}
@@ -1038,6 +1055,7 @@ function SuccessToast({ message }: { message: string }) {
 
 function ArticlesAdminPage({
   actionMessage,
+  categories,
   createMessage,
   onCreatePost,
   onDeletePost,
@@ -1055,17 +1073,18 @@ function ArticlesAdminPage({
   setPostTitleZh,
 }: {
   actionMessage: string;
+  categories: Category[];
   createMessage: string;
   onCreatePost: (event: FormEvent<HTMLFormElement>) => void;
   onDeletePost: (post: ApiPost) => Promise<void>;
   onUpdatePost: (postId: string, body: UpdatePostBody) => Promise<ApiPost>;
-  postCategoryId: PostCategoryId;
+  postCategoryId: PostCategoryId | '';
   postExcerptEn: string;
   postExcerptZh: string;
   posts: ApiPost[];
   postTitleEn: string;
   postTitleZh: string;
-  setPostCategoryId: (value: PostCategoryId) => void;
+  setPostCategoryId: (value: PostCategoryId | '') => void;
   setPostExcerptEn: (value: string) => void;
   setPostExcerptZh: (value: string) => void;
   setPostTitleEn: (value: string) => void;
@@ -1079,7 +1098,7 @@ function ArticlesAdminPage({
   const [query, setQuery] = useState('');
   const [selectedPost, setSelectedPost] = useState<ApiPost | null>(null);
   const [showCreatePostForm, setShowCreatePostForm] = useState(false);
-  const categoryCount = new Set(posts.map(post => post.categoryId)).size;
+  const categoryCount = categories.length;
   const filteredPosts = useMemo(
     () =>
       posts.filter(post => {
@@ -1144,10 +1163,11 @@ function ArticlesAdminPage({
               value={categoryFilter}
             >
               <option value="all">全部分类</option>
-              <option value="notes">随笔</option>
-              <option value="design">设计</option>
-              <option value="engineering">工程</option>
-              <option value="culture">文化</option>
+              {categories.map(categoryItem => (
+                <option key={categoryItem.id} value={categoryItem.id}>
+                  {categoryItem.name['zh-CN']}
+                </option>
+              ))}
             </select>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
@@ -1243,15 +1263,20 @@ function ArticlesAdminPage({
                 分类
                 <select
                   className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  disabled={!categories.length}
                   onChange={event =>
-                    setPostCategoryId(event.target.value as PostCategoryId)
+                    setPostCategoryId(event.target.value as PostCategoryId | '')
                   }
                   value={postCategoryId}
                 >
-                  <option value="notes">随笔</option>
-                  <option value="design">设计</option>
-                  <option value="engineering">工程</option>
-                  <option value="culture">文化</option>
+                  <option value="">
+                    {categories.length ? '请选择分类' : '暂无分类'}
+                  </option>
+                  {categories.map(categoryItem => (
+                    <option key={categoryItem.id} value={categoryItem.id}>
+                      {categoryItem.name['zh-CN']}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -1259,7 +1284,8 @@ function ArticlesAdminPage({
               <p className="mt-3 text-sm text-mint">{createMessage}</p>
             ) : null}
             <button
-              className="mt-5 h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white"
+              className="mt-5 h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!categories.length}
               type="submit"
             >
               保存文章
@@ -1271,6 +1297,7 @@ function ArticlesAdminPage({
       {selectedPost ? (
         <ArticleDetailModal
           onClose={() => setSelectedPost(null)}
+          categories={categories}
           onUpdate={async (postId, body) => {
             const updated = await onUpdatePost(postId, body);
             setSelectedPost(updated);
@@ -1313,16 +1340,20 @@ function ArticlesAdminPage({
 }
 
 function ArticleDetailModal({
+  categories,
   onClose,
   onUpdate,
   post,
 }: {
+  categories: Category[];
   onClose: () => void;
   onUpdate: (postId: string, body: UpdatePostBody) => Promise<ApiPost>;
   post: ApiPost;
 }) {
-  const [categoryId, setCategoryId] = useState<PostCategoryId>(post.categoryId);
-  const [cover, setCover] = useState(post.cover);
+  const [categoryId, setCategoryId] = useState<PostCategoryId | ''>(
+    post.categoryId,
+  );
+  const [cover, setCover] = useState(post.cover ?? '');
   const [excerptEn, setExcerptEn] = useState(post.content['en-US'].excerpt);
   const [excerptZh, setExcerptZh] = useState(post.content['zh-CN'].excerpt);
   const [message, setMessage] = useState('');
@@ -1334,10 +1365,32 @@ function ArticleDetailModal({
   const [titleZh, setTitleZh] = useState(post.content['zh-CN'].title);
   const [bodyEn, setBodyEn] = useState(post.content['en-US'].body.join('\n'));
   const [bodyZh, setBodyZh] = useState(post.content['zh-CN'].body.join('\n'));
+  const categoryOptions = useMemo<Category[]>(() => {
+    if (!post.categoryId || categories.some(category => category.id === post.categoryId)) {
+      return categories;
+    }
+
+    return [
+      {
+        id: post.categoryId,
+        name: {
+          'en-US': post.categoryId,
+          'zh-CN': post.categoryId,
+        },
+      },
+      ...categories,
+    ];
+  }, [categories, post.categoryId]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage('');
+
+    if (!categoryId) {
+      setMessage('暂无分类，无法保存文章。');
+      return;
+    }
+
     setSaving(true);
 
     const body: UpdatePostBody = {
@@ -1356,7 +1409,7 @@ function ArticleDetailModal({
           title: titleZh,
         },
       },
-      cover,
+      cover: cover || undefined,
       featured: post.featured,
       readingMinutes: Number(readingMinutes) || post.readingMinutes,
       status: post.status,
@@ -1458,15 +1511,20 @@ function ArticleDetailModal({
               分类
               <select
                 className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                disabled={!categoryOptions.length}
                 onChange={event =>
-                  setCategoryId(event.target.value as PostCategoryId)
+                  setCategoryId(event.target.value as PostCategoryId | '')
                 }
                 value={categoryId}
               >
-                <option value="notes">随笔</option>
-                <option value="design">设计</option>
-                <option value="engineering">工程</option>
-                <option value="culture">文化</option>
+                {categoryOptions.length ? null : (
+                  <option value="">暂无分类</option>
+                )}
+                {categoryOptions.map(categoryItem => (
+                  <option key={categoryItem.id} value={categoryItem.id}>
+                    {categoryItem.name['zh-CN']}
+                  </option>
+                ))}
               </select>
             </label>
             {message ? (

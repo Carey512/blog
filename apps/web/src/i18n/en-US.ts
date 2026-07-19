@@ -8,7 +8,7 @@ export const enUSLocale: LocaleOption = {
 };
 
 export const enUSMessages: LocaleMessages = {
-  brand: 'Echo Journal',
+  brand: 'Blog',
   nav: {
     home: 'Home',
     articles: 'Articles',

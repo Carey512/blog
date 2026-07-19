@@ -3,6 +3,7 @@ import type {
   ApiEndpointInfo,
   ApiPost,
   AuthLoginResponse,
+  Category,
   CreateMusicBody,
   CreatePostBody,
   FavoriteMusic,
@@ -78,6 +79,10 @@ export const adminApi = {
 
   posts() {
     return request<ApiPost[]>('/api/posts');
+  },
+
+  categories() {
+    return request<Category[]>('/api/categories');
   },
 
   users(token: string, query = '') {

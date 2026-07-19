@@ -8,7 +8,7 @@ export const zhCNLocale: LocaleOption = {
 };
 
 export const zhCNMessages: LocaleMessages = {
-  brand: 'Echo Journal',
+  brand: 'Blog',
   nav: {
     home: '首页',
     articles: '文章',
