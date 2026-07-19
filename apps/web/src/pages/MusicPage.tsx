@@ -98,7 +98,8 @@ export function MusicPage() {
   useEffect(() => {
     const audio = audioRef.current;
 
-    if (!audio || !activeTrack) {
+    if (!audio || !activeTrack || !activeTrack.audioUrl) {
+      audio?.pause();
       return;
     }
 
@@ -111,7 +112,7 @@ export function MusicPage() {
   }, [activeTrack, isPlaying]);
 
   const playableCount = useMemo(
-    () => tracks.filter((track) => Boolean(track.audioUrl)).length,
+    () => tracks.filter((track) => musicService.isPlayable(track)).length,
     [tracks],
   );
 
@@ -220,7 +221,7 @@ export function MusicPage() {
                     <p className="mt-0.5 truncate text-xs text-muted sm:text-sm">{formatTrackLine(track)}</p>
                   </div>
 
-                  {track.audioUrl ? (
+                  {musicService.isPlayable(track) ? (
                     <button
                       className={`mt-2.5 inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition ${
                         active

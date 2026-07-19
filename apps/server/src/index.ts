@@ -24,6 +24,7 @@ import type {
   Locale,
   MusicCategory,
   MusicCategoryId,
+  MusicSource,
   PostStatus,
   UpdatePostBody,
   UpdateWorkDocBody,
@@ -299,7 +300,7 @@ const endpointCatalog: ApiEndpointInfo[] = [
     method: 'POST',
     path: '/api/music',
     title: '新增音乐',
-    description: '登录用户新增音乐元数据；音频文件通过上传接口保存。',
+    description: '登录用户新增音乐元数据，支持平台 iframe 嵌入、授权直链或外部来源。',
     module: 'music',
     auth: 'user',
     audiences: ['admin'],
@@ -485,6 +486,7 @@ const musicCategories: MusicCategory[] = [
 ];
 
 const musicCategoryIds = new Set<MusicCategoryId>(musicCategories.map((category) => category.id));
+const musicSources = new Set<MusicSource>(['upload', 'embed', 'licensed', 'external']);
 
 function isMusicCategory(value?: string): value is MusicCategoryId {
   return Boolean(value && musicCategoryIds.has(value as MusicCategoryId));
@@ -492,6 +494,36 @@ function isMusicCategory(value?: string): value is MusicCategoryId {
 
 function normalizeMusicCategory(value?: string, fallback: MusicCategoryId = 'mandarin') {
   return isMusicCategory(value) ? value : fallback;
+}
+
+function isMusicSource(value?: string): value is MusicSource {
+  return Boolean(value && musicSources.has(value as MusicSource));
+}
+
+function normalizeMusicSource(value?: string, fallback: MusicSource = 'external') {
+  return isMusicSource(value) ? value : fallback;
+}
+
+function cleanOptionalText(value?: string) {
+  const nextValue = value?.trim();
+  return nextValue || undefined;
+}
+
+function cleanExternalUrl(value?: string) {
+  const rawValue = cleanOptionalText(value);
+  const iframeSrc = rawValue?.match(/<iframe[^>]+src=["']([^"']+)["']/i)?.[1];
+  const nextValue = iframeSrc || rawValue;
+
+  if (!nextValue) {
+    return undefined;
+  }
+
+  try {
+    const parsed = new URL(nextValue);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? nextValue : undefined;
+  } catch {
+    return nextValue.startsWith('/') ? nextValue : undefined;
+  }
 }
 
 function splitDocText(value: string) {
@@ -717,7 +749,7 @@ async function loadMusic() {
 
   try {
     const content = await readFile(musicStorePath, 'utf8');
-    const storedMusic = JSON.parse(content) as Array<FavoriteMusic & { categoryId?: string }>;
+    const storedMusic = JSON.parse(content) as Array<FavoriteMusic & { categoryId?: string; source?: string }>;
     let changed = false;
 
     favoriteMusic = storedMusic.map((track) => {
@@ -730,6 +762,7 @@ async function loadMusic() {
       return {
         ...track,
         categoryId,
+        source: normalizeMusicSource(track.source, track.audioUrl ? 'upload' : track.embedUrl ? 'embed' : 'external'),
       };
     });
 
@@ -1352,7 +1385,7 @@ server.get<{ Querystring: { category?: MusicCategoryId | 'all'; q?: string } }>(
   }
 
   return result.filter((track) =>
-    [track.title, track.artist, track.album, track.platform]
+    [track.title, track.artist, track.album, track.platform, track.providerTrackId, track.url, track.embedUrl]
       .filter(Boolean)
       .some((value) => value?.toLowerCase().includes(query)),
   );
@@ -1367,19 +1400,44 @@ server.post<{ Body: CreateMusicBody }>('/api/music', async (request, reply): Pro
     return undefined as never;
   }
 
+  const source = normalizeMusicSource(request.body.source, request.body.embedUrl ? 'embed' : request.body.audioUrl ? 'licensed' : 'external');
+  const audioUrl = cleanExternalUrl(request.body.audioUrl);
+  const embedUrl = cleanExternalUrl(request.body.embedUrl);
+  const sourceUrl = cleanExternalUrl(request.body.url);
+
+  if (!request.body.title?.trim() || !request.body.artist?.trim()) {
+    return reply.code(400).send({
+      message: 'title and artist are required',
+    } as never);
+  }
+
+  if (source === 'embed' && !embedUrl) {
+    return reply.code(400).send({
+      message: 'embedUrl is required for embedded music',
+    } as never);
+  }
+
+  if (source === 'licensed' && !audioUrl) {
+    return reply.code(400).send({
+      message: 'audioUrl is required for licensed music',
+    } as never);
+  }
+
   const now = new Date().toISOString();
   const track: FavoriteMusic = {
     id: `music-${Date.now()}`,
-    artist: request.body.artist,
-    audioUrl: undefined,
-    album: request.body.album,
+    artist: request.body.artist.trim(),
+    audioUrl,
+    album: cleanOptionalText(request.body.album),
     categoryId: normalizeMusicCategory(request.body.categoryId, 'personal'),
-    cover: request.body.cover,
+    cover: cleanExternalUrl(request.body.cover),
     createdAt: now,
-    platform: request.body.platform,
-    source: 'upload',
-    title: request.body.title,
-    url: undefined,
+    embedUrl,
+    platform: cleanOptionalText(request.body.platform),
+    providerTrackId: cleanOptionalText(request.body.providerTrackId),
+    source,
+    title: request.body.title.trim(),
+    url: sourceUrl,
   };
 
   favoriteMusic.unshift(track);
@@ -1419,15 +1477,17 @@ server.post('/api/music/upload', async (request, reply): Promise<FavoriteMusic> 
 
   const track: FavoriteMusic = {
     id: `music-${Date.now()}`,
-    album: fields.album || undefined,
-    artist: fields.artist,
+    album: cleanOptionalText(fields.album),
+    artist: fields.artist.trim(),
     audioUrl: uploadedAudioUrl,
     categoryId: normalizeMusicCategory(fields.categoryId, 'personal'),
-    cover: fields.cover || undefined,
+    cover: cleanExternalUrl(fields.cover),
     createdAt: new Date().toISOString(),
-    platform: undefined,
+    embedUrl: undefined,
+    platform: cleanOptionalText(fields.platform),
+    providerTrackId: cleanOptionalText(fields.providerTrackId),
     source: 'upload',
-    title: fields.title,
+    title: fields.title.trim(),
     url: uploadedAudioUrl,
   };
 
@@ -1461,17 +1521,47 @@ server.put<{ Body: CreateMusicBody; Params: { musicId: string } }>(
     }
 
     const previous = favoriteMusic[index];
+    const source = normalizeMusicSource(request.body.source, previous.source);
+    const requestedAudioUrl = cleanExternalUrl(request.body.audioUrl);
+    const audioUrl = source === 'upload'
+      ? previous.audioUrl
+      : source === 'licensed'
+        ? requestedAudioUrl
+        : undefined;
+    const embedUrl = cleanExternalUrl(request.body.embedUrl);
+    const sourceUrl = cleanExternalUrl(request.body.url);
+
+    if (!request.body.title?.trim() || !request.body.artist?.trim()) {
+      return reply.code(400).send({
+        message: 'title and artist are required',
+      } as never);
+    }
+
+    if (source === 'embed' && !embedUrl) {
+      return reply.code(400).send({
+        message: 'embedUrl is required for embedded music',
+      } as never);
+    }
+
+    if (source === 'licensed' && !audioUrl) {
+      return reply.code(400).send({
+        message: 'audioUrl is required for licensed music',
+      } as never);
+    }
+
     const updated: FavoriteMusic = {
       ...previous,
-      album: request.body.album || undefined,
-      artist: request.body.artist,
-      audioUrl: previous.audioUrl,
+      album: cleanOptionalText(request.body.album),
+      artist: request.body.artist.trim(),
+      audioUrl,
       categoryId: normalizeMusicCategory(request.body.categoryId, previous.categoryId),
-      cover: request.body.cover || undefined,
-      platform: request.body.platform || previous.platform,
-      source: previous.source,
-      title: request.body.title,
-      url: previous.url,
+      cover: cleanExternalUrl(request.body.cover),
+      embedUrl,
+      platform: cleanOptionalText(request.body.platform),
+      providerTrackId: cleanOptionalText(request.body.providerTrackId),
+      source,
+      title: request.body.title.trim(),
+      url: source === 'upload' ? previous.url : sourceUrl,
     };
 
     favoriteMusic[index] = updated;

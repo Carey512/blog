@@ -189,7 +189,7 @@ export const enUSMessages: LocaleMessages = {
   musicClosePlayer: 'Close player',
   musicNowPlaying: 'Now playing',
   musicPause: 'Pause',
-  musicNoAudio: 'No playable audio yet.',
+  musicNoAudio: 'No in-site player yet.',
   switchToLogin: 'Already have an account? Log in',
   switchToRegister: 'Need an account? Register',
   newsletterTitle: 'One sharp note every week',

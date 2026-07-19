@@ -101,7 +101,8 @@ export function BlogHomePage() {
   useEffect(() => {
     const audio = audioRef.current;
 
-    if (!audio || !activeTrack) {
+    if (!audio || !activeTrack || !activeTrack.audioUrl) {
+      audio?.pause();
       return;
     }
 
@@ -434,7 +435,7 @@ function HomeMusicCard({
         <p className="mt-1 truncate text-xs text-muted">
           {formatTrackLine(track)}
         </p>
-        {track.audioUrl ? (
+        {musicService.isPlayable(track) ? (
           <button
             className={`mt-2 inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition ${
               active

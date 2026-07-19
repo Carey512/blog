@@ -10,6 +10,8 @@ export type WorkDocCategory = 'deployment' | 'shortcut' | 'workflow' | 'referenc
 
 export type MusicCategoryId = 'mandarin' | 'instrumental' | 'live' | 'personal';
 
+export type MusicSource = 'upload' | 'embed' | 'licensed' | 'external';
+
 export type User = {
   id: string;
   name: string;
@@ -97,9 +99,11 @@ export type FavoriteMusic = {
   album?: string;
   cover?: string;
   audioUrl?: string;
+  embedUrl?: string;
   platform?: string;
+  providerTrackId?: string;
   url?: string;
-  source: 'upload' | 'external';
+  source: MusicSource;
   createdAt: string;
 };
 
@@ -110,7 +114,10 @@ export type CreateMusicBody = {
   album?: string;
   cover?: string;
   audioUrl?: string;
+  embedUrl?: string;
   platform?: string;
+  providerTrackId?: string;
+  source?: MusicSource;
   url?: string;
 };
 

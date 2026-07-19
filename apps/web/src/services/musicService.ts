@@ -44,6 +44,15 @@ export const musicService = {
     return track.audioUrl ? toApiUrl(track.audioUrl) : '';
   },
 
+  resolveEmbedUrl(track: FavoriteMusic) {
+    const embedValue = track.embedUrl?.trim() ?? '';
+    return embedValue.match(/<iframe[^>]+src=["']([^"']+)["']/i)?.[1] ?? embedValue;
+  },
+
+  isPlayable(track: FavoriteMusic) {
+    return Boolean(track.audioUrl || track.embedUrl);
+  },
+
   uploadMusic(formData: FormData, token: string) {
     return fetch(`${apiBaseUrl}/api/music/upload`, {
       body: formData,

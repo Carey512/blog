@@ -193,6 +193,14 @@ export const adminApi = {
     return uploadRequest<FavoriteMusic>('/api/music/upload', formData, token);
   },
 
+  createMusic(body: CreateMusicBody, token: string) {
+    return request<FavoriteMusic>('/api/music', {
+      body: JSON.stringify(body),
+      headers: authorizationHeader(token),
+      method: 'POST',
+    });
+  },
+
   updateMusic(musicId: string, body: CreateMusicBody, token: string) {
     return request<FavoriteMusic>(`/api/music/${musicId}`, {
       body: JSON.stringify(body),

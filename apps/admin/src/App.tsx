@@ -63,6 +63,7 @@ import { adminApi, apiBaseUrl } from './api';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 type AdminDataKey = 'articles' | 'docs' | 'endpoints' | 'music' | 'users';
+type AdminMusicSourceMode = 'upload' | 'embed' | 'licensed';
 
 const adminAuthStorageKey = 'blog-admin-auth';
 const routerBasename = resolveRouterBasename(import.meta.env.BASE_URL);
@@ -298,11 +299,18 @@ function AdminConsole({
   const [musicTitle, setMusicTitle] = useState('My favorite track');
   const [musicArtist, setMusicArtist] = useState('Unknown Artist');
   const [musicAlbum, setMusicAlbum] = useState('');
+  const [musicAudioUrl, setMusicAudioUrl] = useState('');
   const [musicCategories, setMusicCategories] = useState<MusicCategory[]>([]);
   const [musicCategoryId, setMusicCategoryId] =
     useState<MusicCategoryId>('mandarin');
   const [musicCover, setMusicCover] = useState('');
+  const [musicEmbedUrl, setMusicEmbedUrl] = useState('');
   const [musicFile, setMusicFile] = useState<File | null>(null);
+  const [musicPlatform, setMusicPlatform] = useState('');
+  const [musicProviderTrackId, setMusicProviderTrackId] = useState('');
+  const [musicSourceMode, setMusicSourceMode] =
+    useState<AdminMusicSourceMode>('upload');
+  const [musicSourceUrl, setMusicSourceUrl] = useState('');
   const [createMusicMessage, setCreateMusicMessage] = useState('');
   const [musicActionMessage, setMusicActionMessage] = useState('');
 
@@ -581,26 +589,83 @@ function AdminConsole({
     setCreateMusicMessage('');
     setMusicActionMessage('');
 
-    if (!musicFile) {
+    if (musicSourceMode === 'upload' && !musicFile) {
       setCreateMusicMessage('请先选择音频文件。');
       return;
     }
 
+    if (musicSourceMode === 'embed' && !musicEmbedUrl.trim()) {
+      setCreateMusicMessage('请填写平台 iframe 播放地址。');
+      return;
+    }
+
+    if (musicSourceMode === 'licensed' && !musicAudioUrl.trim()) {
+      setCreateMusicMessage('请填写授权音频直链。');
+      return;
+    }
+
     try {
+      const created =
+        musicSourceMode === 'upload'
+          ? await createUploadedMusic()
+          : await adminApi.createMusic(
+              {
+                album: musicAlbum || undefined,
+                artist: musicArtist,
+                audioUrl:
+                  musicSourceMode === 'licensed'
+                    ? musicAudioUrl || undefined
+                    : undefined,
+                categoryId: musicCategoryId,
+                cover: musicCover || undefined,
+                embedUrl:
+                  musicSourceMode === 'embed'
+                    ? musicEmbedUrl || undefined
+                    : undefined,
+                platform: musicPlatform || undefined,
+                providerTrackId: musicProviderTrackId || undefined,
+                source: musicSourceMode,
+                title: musicTitle,
+                url: musicSourceUrl || undefined,
+              },
+              auth.token,
+            );
+
+      if (musicSourceMode === 'embed' && !created.embedUrl) {
+        await adminApi.deleteMusic(created.id, auth.token).catch(() => undefined);
+        throw new Error('Embedded music was not persisted by the API');
+      }
+
+      if (musicSourceMode === 'licensed' && !created.audioUrl) {
+        await adminApi.deleteMusic(created.id, auth.token).catch(() => undefined);
+        throw new Error('Licensed music URL was not persisted by the API');
+      }
+
+      setMusicFile(null);
+      setMusicAudioUrl('');
+      setMusicEmbedUrl('');
+      setMusicPlatform('');
+      setMusicProviderTrackId('');
+      setMusicSourceUrl('');
+      setMusic(currentMusic => [created, ...currentMusic]);
+      showSuccessToast(`保存音乐成功：${created.title}`);
+    } catch {
+      setCreateMusicMessage(
+        '保存失败，请确认登录状态、后端已部署最新代码，并填写正确来源地址。',
+      );
+    }
+
+    async function createUploadedMusic() {
       const formData = new FormData();
       formData.append('title', musicTitle);
       formData.append('artist', musicArtist);
       formData.append('categoryId', musicCategoryId);
       formData.append('album', musicAlbum);
       formData.append('cover', musicCover);
-      formData.append('file', musicFile);
-      const created = await adminApi.uploadMusic(formData, auth.token);
-
-      setMusicFile(null);
-      setMusic(currentMusic => [created, ...currentMusic]);
-      showSuccessToast(`保存音乐成功：${created.title}`);
-    } catch {
-      setCreateMusicMessage('保存失败，请确认登录状态、后端服务和文件大小。');
+      formData.append('platform', musicPlatform);
+      formData.append('providerTrackId', musicProviderTrackId);
+      formData.append('file', musicFile as File);
+      return adminApi.uploadMusic(formData, auth.token);
     }
   }
 
@@ -807,19 +872,31 @@ function AdminConsole({
                   music={music}
                   musicAlbum={musicAlbum}
                   musicArtist={musicArtist}
+                  musicAudioUrl={musicAudioUrl}
                   musicCategories={musicCategories}
                   musicCategoryId={musicCategoryId}
                   musicCover={musicCover}
+                  musicEmbedUrl={musicEmbedUrl}
                   musicFile={musicFile}
+                  musicPlatform={musicPlatform}
+                  musicProviderTrackId={musicProviderTrackId}
+                  musicSourceMode={musicSourceMode}
+                  musicSourceUrl={musicSourceUrl}
                   musicTitle={musicTitle}
                   onCreateMusic={handleCreateMusic}
                   onDeleteMusic={handleDeleteMusic}
                   onUpdateMusic={handleUpdateMusic}
                   setMusicAlbum={setMusicAlbum}
                   setMusicArtist={setMusicArtist}
+                  setMusicAudioUrl={setMusicAudioUrl}
                   setMusicCategoryId={setMusicCategoryId}
                   setMusicCover={setMusicCover}
+                  setMusicEmbedUrl={setMusicEmbedUrl}
                   setMusicFile={setMusicFile}
+                  setMusicPlatform={setMusicPlatform}
+                  setMusicProviderTrackId={setMusicProviderTrackId}
+                  setMusicSourceMode={setMusicSourceMode}
+                  setMusicSourceUrl={setMusicSourceUrl}
                   setMusicTitle={setMusicTitle}
                 />
               }
@@ -2483,6 +2560,15 @@ function getAdminMusicCategoryLabel(
   }[normalizedCategoryId];
 }
 
+function getAdminMusicSourceLabel(source: FavoriteMusic['source']) {
+  return {
+    embed: '嵌入',
+    external: '外链',
+    licensed: '授权',
+    upload: '上传',
+  }[source];
+}
+
 function formatAdminTrackLine(track: FavoriteMusic) {
   return track.album ? `${track.artist} · 《${track.album}》` : track.artist;
 }
@@ -2636,19 +2722,31 @@ function MusicAdminPage({
   music,
   musicAlbum,
   musicArtist,
+  musicAudioUrl,
   musicCategories,
   musicCategoryId,
   musicCover,
+  musicEmbedUrl,
   musicFile,
+  musicPlatform,
+  musicProviderTrackId,
+  musicSourceMode,
+  musicSourceUrl,
   musicTitle,
   onCreateMusic,
   onDeleteMusic,
   onUpdateMusic,
   setMusicAlbum,
   setMusicArtist,
+  setMusicAudioUrl,
   setMusicCategoryId,
   setMusicCover,
+  setMusicEmbedUrl,
   setMusicFile,
+  setMusicPlatform,
+  setMusicProviderTrackId,
+  setMusicSourceMode,
+  setMusicSourceUrl,
   setMusicTitle,
 }: {
   actionMessage: string;
@@ -2656,10 +2754,16 @@ function MusicAdminPage({
   music: FavoriteMusic[];
   musicAlbum: string;
   musicArtist: string;
+  musicAudioUrl: string;
   musicCategories: MusicCategory[];
   musicCategoryId: MusicCategoryId;
   musicCover: string;
+  musicEmbedUrl: string;
   musicFile: File | null;
+  musicPlatform: string;
+  musicProviderTrackId: string;
+  musicSourceMode: AdminMusicSourceMode;
+  musicSourceUrl: string;
   musicTitle: string;
   onCreateMusic: (event: FormEvent<HTMLFormElement>) => void;
   onDeleteMusic: (track: FavoriteMusic) => Promise<void>;
@@ -2669,9 +2773,15 @@ function MusicAdminPage({
   ) => Promise<FavoriteMusic>;
   setMusicAlbum: (value: string) => void;
   setMusicArtist: (value: string) => void;
+  setMusicAudioUrl: (value: string) => void;
   setMusicCategoryId: (value: MusicCategoryId) => void;
   setMusicCover: (value: string) => void;
+  setMusicEmbedUrl: (value: string) => void;
   setMusicFile: (value: File | null) => void;
+  setMusicPlatform: (value: string) => void;
+  setMusicProviderTrackId: (value: string) => void;
+  setMusicSourceMode: (value: AdminMusicSourceMode) => void;
+  setMusicSourceUrl: (value: string) => void;
   setMusicTitle: (value: string) => void;
 }) {
   const [categoryFilter, setCategoryFilter] = useState<MusicCategoryId | 'all'>(
@@ -2695,6 +2805,9 @@ function MusicAdminPage({
           track.artist,
           track.album,
           track.platform,
+          track.providerTrackId,
+          track.source,
+          track.url,
         ]
           .filter(Boolean)
           .join(' ')
@@ -2778,7 +2891,7 @@ function MusicAdminPage({
             {filteredMusic.length ? (
               filteredMusic.map(track => (
                 <div
-                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_92px_88px_88px] lg:items-center"
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_82px_92px_88px_88px] lg:items-center"
                   key={track.id}
                 >
                   <div className="min-w-0">
@@ -2794,6 +2907,9 @@ function MusicAdminPage({
                       track.categoryId,
                       musicCategories,
                     )}
+                  </span>
+                  <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
+                    {getAdminMusicSourceLabel(track.source)}
                   </span>
                   <span className="text-xs text-slate-500">
                     {track.createdAt.slice(0, 10)}
@@ -2836,10 +2952,24 @@ function MusicAdminPage({
               <div>
                 <h2 className="font-semibold">新增音乐</h2>
                 <p className="text-xs text-slate-500">
-                  上传音频文件并维护曲目信息。
+                  上传音频或添加平台 iframe 播放器。
                 </p>
               </div>
             </div>
+            <label className="mt-4 block text-sm font-medium">
+              来源类型
+              <select
+                className="mt-2 h-10 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-mint"
+                onChange={event =>
+                  setMusicSourceMode(event.target.value as AdminMusicSourceMode)
+                }
+                value={musicSourceMode}
+              >
+                <option value="upload">上传音频</option>
+                <option value="embed">平台嵌入</option>
+                <option value="licensed">授权直链</option>
+              </select>
+            </label>
             <TextField
               label="歌曲名"
               onChange={setMusicTitle}
@@ -2885,17 +3015,50 @@ function MusicAdminPage({
               onChange={setMusicCover}
               value={musicCover}
             />
-            <label className="mt-4 block text-sm font-medium">
-              上传文件
-              <input
-                accept="audio/*"
-                className="mt-2 block w-full rounded-lg border border-line px-3 py-2 text-sm"
-                onChange={event =>
-                  setMusicFile(event.target.files?.[0] ?? null)
-                }
-                type="file"
+            <TextField
+              label="平台名称"
+              onChange={setMusicPlatform}
+              value={musicPlatform}
+            />
+            <TextField
+              label="平台歌曲 ID"
+              onChange={setMusicProviderTrackId}
+              value={musicProviderTrackId}
+            />
+            {musicSourceMode === 'upload' ? (
+              <label className="mt-4 block text-sm font-medium">
+                上传文件
+                <input
+                  accept="audio/*"
+                  className="mt-2 block w-full rounded-lg border border-line px-3 py-2 text-sm"
+                  onChange={event =>
+                    setMusicFile(event.target.files?.[0] ?? null)
+                  }
+                  type="file"
+                />
+              </label>
+            ) : null}
+            {musicSourceMode === 'embed' ? (
+              <TextAreaField
+                label="iframe 播放地址或完整 iframe 代码"
+                onChange={setMusicEmbedUrl}
+                value={musicEmbedUrl}
               />
-            </label>
+            ) : null}
+            {musicSourceMode === 'licensed' ? (
+              <TextField
+                label="授权音频直链"
+                onChange={setMusicAudioUrl}
+                value={musicAudioUrl}
+              />
+            ) : null}
+            {musicSourceMode !== 'upload' ? (
+              <TextField
+                label="平台歌曲页链接"
+                onChange={setMusicSourceUrl}
+                value={musicSourceUrl}
+              />
+            ) : null}
             {musicFile ? (
               <p className="mt-2 text-xs text-slate-500">
                 已选择：{musicFile.name}
@@ -2972,29 +3135,56 @@ function MusicDetailModal({
 }) {
   const [album, setAlbum] = useState(track.album ?? '');
   const [artist, setArtist] = useState(track.artist);
+  const [audioUrl, setAudioUrl] = useState(track.audioUrl ?? '');
   const [categoryId, setCategoryId] = useState<MusicCategoryId>(
     track.categoryId,
   );
   const [cover, setCover] = useState(track.cover ?? '');
+  const [embedUrl, setEmbedUrl] = useState(track.embedUrl ?? '');
   const [message, setMessage] = useState('');
+  const [platform, setPlatform] = useState(track.platform ?? '');
+  const [providerTrackId, setProviderTrackId] = useState(
+    track.providerTrackId ?? '',
+  );
   const [saving, setSaving] = useState(false);
+  const [source, setSource] = useState<FavoriteMusic['source']>(track.source);
+  const [sourceUrl, setSourceUrl] = useState(track.url ?? '');
   const [title, setTitle] = useState(track.title);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage('');
+
+    if (source === 'embed' && !embedUrl.trim()) {
+      setMessage('请填写平台 iframe 播放地址。');
+      return;
+    }
+
+    if (source === 'licensed' && !audioUrl.trim()) {
+      setMessage('请填写授权音频直链。');
+      return;
+    }
+
     setSaving(true);
 
     try {
       await onUpdate(track.id, {
         album: album || undefined,
         artist,
-        audioUrl: track.audioUrl,
+        audioUrl:
+          source === 'upload'
+            ? track.audioUrl
+            : source === 'licensed'
+              ? audioUrl || undefined
+              : undefined,
         categoryId,
         cover: cover || undefined,
-        platform: track.platform,
+        embedUrl: source === 'embed' ? embedUrl || undefined : undefined,
+        platform: platform || undefined,
+        providerTrackId: providerTrackId || undefined,
+        source,
         title,
-        url: track.url,
+        url: source === 'upload' ? track.url : sourceUrl || undefined,
       });
       setSaving(false);
       onClose();
@@ -3047,18 +3237,51 @@ function MusicDetailModal({
                 onChange={setAlbum}
                 value={album}
               />
+              <CompactTextField
+                label="平台名称"
+                onChange={setPlatform}
+                value={platform}
+              />
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <CompactTextField
+                label="平台歌曲 ID"
+                onChange={setProviderTrackId}
+                value={providerTrackId}
+              />
+              <CompactTextField
+                label="平台歌曲页链接"
+                onChange={setSourceUrl}
+                value={sourceUrl}
+              />
             </div>
             <CompactTextField
               label="封面 URL"
               onChange={setCover}
               value={cover}
             />
+            {source === 'embed' ? (
+              <CompactTextArea
+                label="iframe 播放地址或完整 iframe 代码"
+                onChange={setEmbedUrl}
+                rows={4}
+                value={embedUrl}
+              />
+            ) : null}
+            {source === 'licensed' ? (
+              <CompactTextField
+                label="授权音频直链"
+                onChange={setAudioUrl}
+                value={audioUrl}
+              />
+            ) : null}
           </section>
 
           <aside className="space-y-3">
             <div className="rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-500">
               <p>ID：{track.id}</p>
               <p>创建时间：{track.createdAt.slice(0, 10)}</p>
+              <p>来源：{getAdminMusicSourceLabel(source)}</p>
               <p>
                 分类：{getAdminMusicCategoryLabel(track.categoryId, categories)}
               </p>
@@ -3070,18 +3293,42 @@ function MusicDetailModal({
                 src={resolveMediaUrl(cover)}
               />
             ) : null}
-            {track.audioUrl ? (
+            {source === 'embed' && embedUrl ? (
+              <iframe
+                className="aspect-video w-full rounded-lg border border-line bg-white"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                src={embedUrl}
+                title={`${title} 播放器预览`}
+              />
+            ) : audioUrl ? (
               <audio
                 className="w-full"
                 controls
                 preload="none"
-                src={resolveMediaUrl(track.audioUrl)}
+                src={resolveMediaUrl(audioUrl)}
               />
             ) : (
               <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
-                暂无可播放音频。
+                暂无站内播放来源。
               </p>
             )}
+            <label className="block text-sm font-medium">
+              来源类型
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                onChange={event =>
+                  setSource(event.target.value as FavoriteMusic['source'])
+                }
+                value={source}
+              >
+                <option value="upload">上传音频</option>
+                <option value="embed">平台嵌入</option>
+                <option value="licensed">授权直链</option>
+                <option value="external">外部来源</option>
+              </select>
+            </label>
             <label className="block text-sm font-medium">
               分类
               <select

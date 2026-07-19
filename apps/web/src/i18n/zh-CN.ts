@@ -189,7 +189,7 @@ export const zhCNMessages: LocaleMessages = {
   musicClosePlayer: '关闭播放器',
   musicNowPlaying: '正在播放',
   musicPause: '暂停',
-  musicNoAudio: '暂无可播放音频。',
+  musicNoAudio: '暂无站内播放来源。',
   switchToLogin: '已有账号？去登录',
   switchToRegister: '没有账号？去注册',
   newsletterTitle: '每周一封精选札记',
