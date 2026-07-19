@@ -5,18 +5,25 @@ import {
   Check,
   Clock3,
   Copy,
+  Download,
+  FileText,
   Globe2,
+  Link2,
   Loader2,
   MapPin,
   Network,
   Play,
+  QrCode,
   RefreshCcw,
   Search,
   Server,
   Square,
+  UserRound,
+  Wifi,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { Locale } from '@blog/shared';
@@ -26,6 +33,8 @@ import { messages, type LocaleMessages } from '../i18n';
 
 type TimestampUnit = 'seconds' | 'milliseconds';
 type ToolTab = 'single' | 'batch';
+type QrMode = 'contact' | 'text' | 'url' | 'wifi';
+type QrErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
 
 type IpInfoResponse = {
   abuse?: {
@@ -114,12 +123,19 @@ export function ToolsPage() {
       title: t.ipToolTitle,
       tone: 'accent' as const,
     },
+    {
+      Icon: QrCode,
+      intro: t.qrToolIntro,
+      path: '/tools/qr-code',
+      title: t.qrToolTitle,
+      tone: 'primary' as const,
+    },
   ];
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pb-8 pt-4 sm:px-5 lg:px-6">
       <ModulePageHeader
-        count={2}
+        count={toolCards.length}
         countLabel={t.toolsCount}
         eyebrow={t.nav.tools}
         intro={t.toolsIntro}
@@ -171,6 +187,22 @@ export function IpLookupToolPage() {
       title={t.ipToolTitle}
     >
       <IpLookupToolCard locale={locale} />
+    </ToolDetailShell>
+  );
+}
+
+export function QrCodeToolPage() {
+  const { locale } = usePreferences();
+  const t = messages[locale];
+
+  return (
+    <ToolDetailShell
+      countLabel={t.toolsCount}
+      eyebrow={t.nav.tools}
+      intro={t.qrToolIntro}
+      title={t.qrToolTitle}
+    >
+      <QrCodeToolCard locale={locale} />
     </ToolDetailShell>
   );
 }
@@ -636,6 +668,506 @@ function IpLookupToolCard({ locale }: { locale: Locale }) {
       </section>
     </article>
   );
+}
+
+function QrCodeToolCard({ locale }: { locale: Locale }) {
+  const t = messages[locale];
+  const [backgroundColor, setBackgroundColor] = useState('#ffffff');
+  const [contactEmail, setContactEmail] = useState('hello@example.com');
+  const [contactName, setContactName] = useState('Echo Journal');
+  const [contactPhone, setContactPhone] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+  const [errorLevel, setErrorLevel] = useState<QrErrorCorrectionLevel>('M');
+  const [foregroundColor, setForegroundColor] = useState('#111827');
+  const [margin, setMargin] = useState(2);
+  const [mode, setMode] = useState<QrMode>('url');
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [qrSvg, setQrSvg] = useState('');
+  const [size, setSize] = useState(280);
+  const [textValue, setTextValue] = useState('Echo Journal');
+  const [urlValue, setUrlValue] = useState(() => getInitialQrUrl());
+  const [wifiEncryption, setWifiEncryption] = useState('WPA');
+  const [wifiPassword, setWifiPassword] = useState('');
+  const [wifiSsid, setWifiSsid] = useState('');
+  const payload = useMemo(
+    () =>
+      buildQrPayload({
+        contactEmail,
+        contactName,
+        contactPhone,
+        mode,
+        textValue,
+        urlValue,
+        wifiEncryption,
+        wifiPassword,
+        wifiSsid,
+      }),
+    [
+      contactEmail,
+      contactName,
+      contactPhone,
+      mode,
+      textValue,
+      urlValue,
+      wifiEncryption,
+      wifiPassword,
+      wifiSsid,
+    ],
+  );
+  const modeOptions: Array<{ Icon: LucideIcon; label: string; value: QrMode }> = [
+    { Icon: Link2, label: t.qrModeUrl, value: 'url' },
+    { Icon: FileText, label: t.qrModeText, value: 'text' },
+    { Icon: UserRound, label: t.qrModeContact, value: 'contact' },
+    { Icon: Wifi, label: t.qrModeWifi, value: 'wifi' },
+  ];
+
+  useEffect(() => {
+    void generateQr();
+  }, [backgroundColor, errorLevel, foregroundColor, margin, payload, size]);
+
+  async function generateQr() {
+    if (!payload.trim()) {
+      setError(t.qrEmptyValue);
+      setQrDataUrl('');
+      setQrSvg('');
+      return;
+    }
+
+    try {
+      setError('');
+      const options = {
+        color: {
+          dark: foregroundColor,
+          light: backgroundColor,
+        },
+        errorCorrectionLevel: errorLevel,
+        margin,
+        width: size,
+      };
+      const [nextDataUrl, nextSvg] = await Promise.all([
+        QRCode.toDataURL(payload, options),
+        QRCode.toString(payload, {
+          ...options,
+          type: 'svg' as const,
+        }),
+      ]);
+
+      setQrDataUrl(nextDataUrl);
+      setQrSvg(nextSvg);
+    } catch {
+      setError(t.qrGenerateError);
+      setQrDataUrl('');
+      setQrSvg('');
+    }
+  }
+
+  function resetQr() {
+    setBackgroundColor('#ffffff');
+    setContactEmail('hello@example.com');
+    setContactName('Echo Journal');
+    setContactPhone('');
+    setErrorLevel('M');
+    setForegroundColor('#111827');
+    setMargin(2);
+    setMode('url');
+    setSize(280);
+    setTextValue('Echo Journal');
+    setUrlValue(getInitialQrUrl());
+    setWifiEncryption('WPA');
+    setWifiPassword('');
+    setWifiSsid('');
+  }
+
+  function downloadQr(format: 'png' | 'svg') {
+    if (format === 'png' && qrDataUrl) {
+      downloadDataUrl(qrDataUrl, `echo-qr-${mode}.png`);
+      return;
+    }
+
+    if (format === 'svg' && qrSvg) {
+      downloadTextFile(qrSvg, `echo-qr-${mode}.svg`, 'image/svg+xml;charset=utf-8');
+    }
+  }
+
+  async function copyPayload() {
+    if (!payload.trim()) {
+      return;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload);
+      } else {
+        copyWithTextarea(payload);
+      }
+    } catch {
+      copyWithTextarea(payload);
+    }
+
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+
+  return (
+    <article id="qr-code" className="overflow-hidden rounded-lg border border-border bg-surface shadow-line">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-muted/40 p-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <QrCode className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-tight text-foreground">
+              {t.qrToolTitle}
+            </h2>
+            <p className="mt-1 text-sm leading-5 text-muted">{t.qrToolIntro}</p>
+          </div>
+        </div>
+        <a
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-background px-2.5 text-xs font-semibold text-primary transition hover:text-foreground"
+          href="https://cli.im/"
+          rel="noreferrer"
+          target="_blank"
+        >
+          <QrCode className="h-3.5 w-3.5" aria-hidden="true" />
+          cli.im
+        </a>
+      </header>
+
+      <section className="grid gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-3">
+          <div className="flex gap-1 overflow-x-auto border-b border-border">
+            {modeOptions.map((item) => (
+              <button
+                className={`inline-flex h-10 shrink-0 items-center justify-center gap-1.5 border-b-2 px-3 text-sm font-semibold transition ${
+                  mode === item.value
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted hover:text-foreground'
+                }`}
+                key={item.value}
+                onClick={() => setMode(item.value)}
+                type="button"
+              >
+                <item.Icon className="h-4 w-4" aria-hidden="true" />
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <section className="rounded-lg border border-border bg-background p-3">
+            {mode === 'url' ? (
+              <QrTextArea
+                label={t.qrInputLabel}
+                onChange={setUrlValue}
+                placeholder={t.qrUrlPlaceholder}
+                value={urlValue}
+              />
+            ) : null}
+
+            {mode === 'text' ? (
+              <QrTextArea
+                label={t.qrInputLabel}
+                onChange={setTextValue}
+                placeholder={t.qrTextPlaceholder}
+                value={textValue}
+              />
+            ) : null}
+
+            {mode === 'contact' ? (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <QrInput label={t.qrContactName} onChange={setContactName} value={contactName} />
+                <QrInput label={t.qrContactPhone} onChange={setContactPhone} value={contactPhone} />
+                <QrInput label={t.qrContactEmail} onChange={setContactEmail} type="email" value={contactEmail} />
+              </div>
+            ) : null}
+
+            {mode === 'wifi' ? (
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_140px]">
+                <QrInput label={t.qrWifiSsid} onChange={setWifiSsid} value={wifiSsid} />
+                <QrInput label={t.qrWifiPassword} onChange={setWifiPassword} value={wifiPassword} />
+                <label className="block text-sm font-medium text-foreground">
+                  {t.qrWifiEncryption}
+                  <select
+                    className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    onChange={(event) => setWifiEncryption(event.target.value)}
+                    value={wifiEncryption}
+                  >
+                    <option value="WPA">WPA/WPA2</option>
+                    <option value="WEP">WEP</option>
+                    <option value="nopass">{t.qrWifiNone}</option>
+                  </select>
+                </label>
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button
+                className="inline-flex h-10 min-w-36 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+                onClick={() => void generateQr()}
+                type="button"
+              >
+                <QrCode className="h-4 w-4" aria-hidden="true" />
+                {t.qrGenerateAction}
+              </button>
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:text-foreground"
+                onClick={copyPayload}
+                type="button"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-primary" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-4 w-4" aria-hidden="true" />
+                )}
+                {copied ? t.qrCopied : t.qrCopyPayload}
+              </button>
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:text-foreground"
+                onClick={resetQr}
+                type="button"
+              >
+                <RefreshCcw className="h-4 w-4" aria-hidden="true" />
+                {t.qrReset}
+              </button>
+            </div>
+          </section>
+
+          <section className="grid gap-3 rounded-lg border border-border bg-background p-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="block text-sm font-medium text-foreground">
+              {t.qrForeground}
+              <input
+                className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-2"
+                onChange={(event) => setForegroundColor(event.target.value)}
+                type="color"
+                value={foregroundColor}
+              />
+            </label>
+            <label className="block text-sm font-medium text-foreground">
+              {t.qrBackground}
+              <input
+                className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-2"
+                onChange={(event) => setBackgroundColor(event.target.value)}
+                type="color"
+                value={backgroundColor}
+              />
+            </label>
+            <label className="block text-sm font-medium text-foreground">
+              {t.qrSize}: {size}px
+              <input
+                className="mt-2 w-full accent-primary"
+                max="480"
+                min="180"
+                onChange={(event) => setSize(Number(event.target.value))}
+                step="20"
+                type="range"
+                value={size}
+              />
+            </label>
+            <label className="block text-sm font-medium text-foreground">
+              {t.qrErrorLevel}
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                onChange={(event) => setErrorLevel(event.target.value as QrErrorCorrectionLevel)}
+                value={errorLevel}
+              >
+                <option value="L">L</option>
+                <option value="M">M</option>
+                <option value="Q">Q</option>
+                <option value="H">H</option>
+              </select>
+            </label>
+            <label className="block text-sm font-medium text-foreground md:col-span-2 xl:col-span-4">
+              {t.qrMargin}: {margin}
+              <input
+                className="mt-2 w-full accent-primary"
+                max="6"
+                min="0"
+                onChange={(event) => setMargin(Number(event.target.value))}
+                type="range"
+                value={margin}
+              />
+            </label>
+          </section>
+
+          {error ? (
+            <p className="rounded-lg bg-accent/10 px-3 py-2 text-sm font-medium text-accent">
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <aside className="rounded-lg border border-border bg-background p-3">
+          <h3 className="text-base font-semibold text-foreground">{t.qrPreviewTitle}</h3>
+          <div className="mt-3 grid aspect-square place-items-center rounded-lg border border-border bg-white p-4">
+            {qrDataUrl ? (
+              <img
+                alt={t.qrPreviewTitle}
+                className="h-full max-h-[300px] w-full max-w-[300px] object-contain"
+                src={qrDataUrl}
+              />
+            ) : (
+              <QrCode className="h-28 w-28 text-slate-200" aria-hidden="true" />
+            )}
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-foreground px-3 text-sm font-semibold text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!qrDataUrl}
+              onClick={() => downloadQr('png')}
+              type="button"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              {t.qrDownloadPng}
+            </button>
+            <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!qrSvg}
+              onClick={() => downloadQr('svg')}
+              type="button"
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              {t.qrDownloadSvg}
+            </button>
+          </div>
+          <p className="mt-3 line-clamp-5 rounded-lg bg-surface-muted px-3 py-2 font-mono text-xs leading-5 text-muted">
+            {payload || t.qrEmptyPreview}
+          </p>
+        </aside>
+      </section>
+    </article>
+  );
+}
+
+function QrInput({
+  label,
+  onChange,
+  type = 'text',
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: string;
+}) {
+  return (
+    <label className="block text-sm font-medium text-foreground">
+      {label}
+      <input
+        className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+        onChange={(event) => onChange(event.target.value)}
+        type={type}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function QrTextArea({
+  label,
+  onChange,
+  placeholder,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <label className="block text-sm font-medium text-foreground">
+      {label}
+      <textarea
+        className="mt-1 min-h-44 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm leading-6 outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        value={value}
+      />
+    </label>
+  );
+}
+
+function buildQrPayload({
+  contactEmail,
+  contactName,
+  contactPhone,
+  mode,
+  textValue,
+  urlValue,
+  wifiEncryption,
+  wifiPassword,
+  wifiSsid,
+}: {
+  contactEmail: string;
+  contactName: string;
+  contactPhone: string;
+  mode: QrMode;
+  textValue: string;
+  urlValue: string;
+  wifiEncryption: string;
+  wifiPassword: string;
+  wifiSsid: string;
+}) {
+  if (mode === 'url') {
+    return normalizeQrUrl(urlValue);
+  }
+
+  if (mode === 'contact') {
+    return [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${contactName.trim()}`,
+      contactPhone.trim() ? `TEL:${contactPhone.trim()}` : '',
+      contactEmail.trim() ? `EMAIL:${contactEmail.trim()}` : '',
+      'END:VCARD',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  if (mode === 'wifi') {
+    const encryption = wifiEncryption === 'nopass' ? 'nopass' : wifiEncryption;
+    return `WIFI:T:${escapeWifiValue(encryption)};S:${escapeWifiValue(wifiSsid)};P:${escapeWifiValue(wifiPassword)};;`;
+  }
+
+  return textValue.trim();
+}
+
+function normalizeQrUrl(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return '';
+  }
+
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+function escapeWifiValue(value: string) {
+  return value.replace(/([\\;,:"])/g, '\\$1');
+}
+
+function getInitialQrUrl() {
+  if (typeof window === 'undefined') {
+    return 'https://example.com';
+  }
+
+  return window.location.origin;
+}
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = dataUrl;
+  link.click();
+}
+
+function downloadTextFile(content: string, filename: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function IpLookupResult({

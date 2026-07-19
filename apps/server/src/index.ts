@@ -1001,7 +1001,7 @@ server.get('/api/admin/overview', async (request, reply): Promise<{ modules: Adm
       { module: 'articles', count: posts.length },
       { module: 'docs', count: docs.length },
       { module: 'music', count: favoriteMusic.length },
-      { module: 'tools', count: 2 },
+      { module: 'tools', count: 3 },
       { module: 'users', count: userAccounts.length },
       { module: 'endpoints', count: endpointCatalog.length },
     ],

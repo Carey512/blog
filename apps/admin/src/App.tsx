@@ -13,6 +13,7 @@ import {
   Music2,
   Newspaper,
   Plus,
+  QrCode,
   RadioTower,
   RefreshCw,
   Save,
@@ -3090,6 +3091,18 @@ const adminToolItems = [
     source: 'ipinfo.io',
     status: '已上线',
     title: 'IP 查询',
+  },
+  {
+    api: '无后端接口',
+    backend: '浏览器本地运行',
+    category: '二维码工具',
+    description: '生成网址、文本、名片和 WiFi 二维码，支持 PNG/SVG 下载。',
+    Icon: QrCode,
+    id: 'qr-code',
+    route: '/tools/qr-code',
+    source: '前端本地生成',
+    status: '已上线',
+    title: '二维码生成',
   },
 ];
 

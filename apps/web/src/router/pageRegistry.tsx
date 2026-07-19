@@ -10,6 +10,7 @@ import { MusicPage } from '../pages/MusicPage';
 import { PostDetailPage } from '../pages/PostDetailPage';
 import {
   IpLookupToolPage,
+  QrCodeToolPage,
   TimestampToolPage,
   ToolsPage,
 } from '../pages/ToolsPage';
@@ -59,6 +60,10 @@ export const registeredPages: RegisteredPage[] = [
   {
     path: '/tools/ip-lookup',
     Component: IpLookupToolPage,
+  },
+  {
+    path: '/tools/qr-code',
+    Component: QrCodeToolPage,
   },
   {
     path: '/about',

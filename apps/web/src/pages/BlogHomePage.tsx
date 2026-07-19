@@ -9,6 +9,7 @@ import {
   Newspaper,
   Pause,
   Play,
+  QrCode,
   Wrench,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -236,6 +237,14 @@ export function BlogHomePage() {
             title={t.ipToolTitle}
             to="/tools/ip-lookup"
             tone="accent"
+          />
+          <HomeToolCard
+            Icon={QrCode}
+            intro={t.qrToolIntro}
+            locale={locale}
+            title={t.qrToolTitle}
+            to="/tools/qr-code"
+            tone="primary"
           />
         </div>
       </HomeModule>
