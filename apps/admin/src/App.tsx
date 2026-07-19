@@ -4,7 +4,6 @@ import {
   Check,
   Clock3,
   Eye,
-  ExternalLink,
   Gauge,
   Headphones,
   Link as LinkIcon,
@@ -529,30 +528,6 @@ function AdminConsole({
     }
   }
 
-  async function handleRefreshPosts() {
-    setCreatePostMessage('');
-    setPostActionMessage('');
-
-    try {
-      const result = await adminApi.refreshPosts(auth.token);
-      setPosts(result.posts);
-      markDataLoaded('articles');
-      setOverviewItems(currentItems =>
-        currentItems.map(item =>
-          item.module === 'articles'
-            ? {
-                ...item,
-                count: result.posts.length,
-              }
-            : item,
-        ),
-      );
-      showSuccessToast(`\u5237\u65b0\u8ba2\u9605\u6210\u529f\uff1a${result.posts.length} \u7bc7`);
-    } catch {
-      setPostActionMessage('\u5237\u65b0\u8ba2\u9605\u5931\u8d25\uff0c\u8bf7\u786e\u8ba4\u540e\u7aef\u53ef\u4ee5\u8bbf\u95ee\u7b2c\u4e09\u65b9\u63a5\u53e3\u3002');
-    }
-  }
-
   async function handleUpdatePost(postId: string, body: UpdatePostBody) {
     setPostActionMessage('');
 
@@ -778,7 +753,6 @@ function AdminConsole({
                   createMessage={createPostMessage}
                   onCreatePost={handleCreatePost}
                   onDeletePost={handleDeletePost}
-                  onRefreshPosts={handleRefreshPosts}
                   onUpdatePost={handleUpdatePost}
                   postCategoryId={postCategoryId}
                   postExcerptEn={postExcerptEn}
@@ -1066,7 +1040,6 @@ function ArticlesAdminPage({
   createMessage,
   onCreatePost,
   onDeletePost,
-  onRefreshPosts,
   onUpdatePost,
   postCategoryId,
   postExcerptEn,
@@ -1084,7 +1057,6 @@ function ArticlesAdminPage({
   createMessage: string;
   onCreatePost: (event: FormEvent<HTMLFormElement>) => void;
   onDeletePost: (post: ApiPost) => Promise<void>;
-  onRefreshPosts: () => Promise<void>;
   onUpdatePost: (postId: string, body: UpdatePostBody) => Promise<ApiPost>;
   postCategoryId: PostCategoryId;
   postExcerptEn: string;
@@ -1105,6 +1077,7 @@ function ArticlesAdminPage({
   const [deleteTarget, setDeleteTarget] = useState<ApiPost | null>(null);
   const [query, setQuery] = useState('');
   const [selectedPost, setSelectedPost] = useState<ApiPost | null>(null);
+  const [showCreatePostForm, setShowCreatePostForm] = useState(false);
   const categoryCount = new Set(posts.map(post => post.categoryId)).size;
   const filteredPosts = useMemo(
     () =>
@@ -1130,7 +1103,13 @@ function ArticlesAdminPage({
 
   return (
     <section className="space-y-4">
-      <div className="grid gap-4">
+      <div
+        className={
+          showCreatePostForm
+            ? 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]'
+            : 'grid gap-4'
+        }
+      >
         <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -1171,13 +1150,11 @@ function ArticlesAdminPage({
             </select>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
-              onClick={() => {
-                void onRefreshPosts();
-              }}
+              onClick={() => setShowCreatePostForm(current => !current)}
               type="button"
             >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              {'\u5237\u65b0\u8ba2\u9605'}
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {showCreatePostForm ? '收起' : '新增'}
             </button>
           </div>
 
@@ -1231,6 +1208,63 @@ function ArticlesAdminPage({
           </div>
         </section>
 
+        {showCreatePostForm ? (
+          <form
+            className="animate-panel-in rounded-lg border border-line bg-panel p-5 shadow-panel xl:sticky xl:top-4 xl:self-start"
+            onSubmit={onCreatePost}
+          >
+            <h2 className="font-semibold">新建文章</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              当前仅支持管理员上传，保存后会进入 web /articles。
+            </p>
+            <TextField
+              label="中文标题"
+              onChange={setPostTitleZh}
+              value={postTitleZh}
+            />
+            <TextAreaField
+              label="中文摘要"
+              onChange={setPostExcerptZh}
+              value={postExcerptZh}
+            />
+            <TextField
+              label="英文标题"
+              onChange={setPostTitleEn}
+              value={postTitleEn}
+            />
+            <TextAreaField
+              label="英文摘要"
+              onChange={setPostExcerptEn}
+              value={postExcerptEn}
+            />
+            <div className="mt-4 grid gap-3">
+              <label className="block text-sm font-medium">
+                分类
+                <select
+                  className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+                  onChange={event =>
+                    setPostCategoryId(event.target.value as PostCategoryId)
+                  }
+                  value={postCategoryId}
+                >
+                  <option value="notes">随笔</option>
+                  <option value="design">设计</option>
+                  <option value="engineering">工程</option>
+                  <option value="culture">文化</option>
+                </select>
+              </label>
+            </div>
+            {createMessage ? (
+              <p className="mt-3 text-sm text-mint">{createMessage}</p>
+            ) : null}
+            <button
+              className="mt-5 h-11 w-full rounded-lg bg-brand px-4 text-sm font-semibold text-white"
+              type="submit"
+            >
+              保存文章
+            </button>
+          </form>
+        ) : null}
       </div>
 
       {selectedPost ? (
@@ -1407,19 +1441,7 @@ function ArticleDetailModal({
               <p>ID：{post.id}</p>
               <p>作者：{post.content['zh-CN'].author}</p>
               <p>发布日期：{post.publishedAt}</p>
-              {post.sourceName ? <p>订阅源：{post.sourceName}</p> : null}
             </div>
-            {post.externalUrl ? (
-              <a
-                className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-brand transition hover:bg-slate-50"
-                href={post.externalUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                打开原文
-              </a>
-            ) : null}
             <CompactTextField
               label="封面 URL"
               onChange={setCover}

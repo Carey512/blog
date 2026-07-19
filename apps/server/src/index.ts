@@ -24,7 +24,6 @@ import type {
   Locale,
   MusicCategory,
   MusicCategoryId,
-  PostCategoryId,
   PostStatus,
   UpdatePostBody,
   UpdateWorkDocBody,
@@ -46,7 +45,7 @@ const categoriesStorePath = join(dataRoot, 'categories.json');
 const docsHtmlRoot = join(dataRoot, 'docs-html');
 const docsStorePath = join(dataRoot, 'docs.json');
 const musicStorePath = join(dataRoot, 'music.json');
-const postsStorePath = join(dataRoot, 'subscribed-posts.json');
+const postsStorePath = join(dataRoot, 'uploaded-posts.json');
 const usersStorePath = join(dataRoot, 'users.json');
 
 type UserAccount = User & {
@@ -210,7 +209,7 @@ const endpointCatalog: ApiEndpointInfo[] = [
     method: 'GET',
     path: '/api/posts?status=published',
     title: '文章列表',
-    description: '读取第三方订阅文章列表，前台使用 published，后台用于管理总览。',
+    description: '读取文章列表，前台使用 published，后台用于管理总览。',
     module: 'posts',
     auth: 'public',
     audiences: ['web', 'admin'],
@@ -220,27 +219,17 @@ const endpointCatalog: ApiEndpointInfo[] = [
     method: 'GET',
     path: '/api/posts/:postId',
     title: '文章详情',
-    description: '按文章 ID 读取订阅文章详情，并返回原文链接。',
+    description: '按文章 ID 读取文章详情。',
     module: 'posts',
     auth: 'public',
     audiences: ['web'],
-  },
-  {
-    id: 'posts-refresh',
-    method: 'POST',
-    path: '/api/posts/refresh',
-    title: '刷新文章订阅',
-    description: '管理员手动刷新第三方文章订阅，并更新后端缓存。',
-    module: 'posts',
-    auth: 'admin',
-    audiences: ['admin'],
   },
   {
     id: 'posts-create',
     method: 'POST',
     path: '/api/posts',
     title: '创建文章',
-    description: '兼容保留的管理员创建文章接口；当前文章来源以第三方订阅为主。',
+    description: '管理员创建文章，当前固定发布到前台文章列表。',
     module: 'posts',
     auth: 'admin',
     audiences: ['admin'],
@@ -523,421 +512,6 @@ function normalizeMusicCategory(value?: string, fallback: MusicCategoryId = 'man
   return isMusicCategory(value) ? value : fallback;
 }
 
-type ArticleSubscriptionSource =
-  | {
-      categoryId: PostCategoryId;
-      id: string;
-      limit: number;
-      name: string;
-      sourceUrl: string;
-      type: 'devto';
-      url: string;
-    }
-  | {
-      categoryId: PostCategoryId;
-      id: string;
-      itemUrlBase: string;
-      limit: number;
-      listUrl: string;
-      name: string;
-      sourceUrl: string;
-      type: 'hacker-news';
-    };
-
-type DevToArticle = {
-  canonical_url?: string;
-  cover_image?: string | null;
-  description?: string;
-  id: number;
-  published_at?: string;
-  published_timestamp?: string;
-  reading_time_minutes?: number;
-  social_image?: string | null;
-  tag_list?: string[];
-  title: string;
-  url: string;
-  user?: {
-    name?: string;
-    username?: string;
-  };
-};
-
-type HackerNewsStory = {
-  by?: string;
-  descendants?: number;
-  id: number;
-  score?: number;
-  time?: number;
-  title?: string;
-  type?: string;
-  url?: string;
-};
-
-const subscribedPostLimit = 20;
-const postSubscriptionRefreshMs = 1000 * 60 * 60 * 3;
-const subscriptionRequestTimeoutMs = 6000;
-let postSubscriptionLastRefresh = 0;
-let postSubscriptionRefreshPromise: Promise<ApiPost[]> | null = null;
-
-const articleSubscriptionSources: ArticleSubscriptionSource[] = [
-  {
-    categoryId: 'engineering',
-    id: 'devto-programming',
-    limit: 6,
-    name: 'DEV Community',
-    sourceUrl: 'https://dev.to/t/programming',
-    type: 'devto',
-    url: 'https://dev.to/api/articles?tag=programming&top=7&per_page=6',
-  },
-  {
-    categoryId: 'engineering',
-    id: 'devto-javascript',
-    limit: 6,
-    name: 'DEV Community',
-    sourceUrl: 'https://dev.to/t/javascript',
-    type: 'devto',
-    url: 'https://dev.to/api/articles?tag=javascript&top=7&per_page=6',
-  },
-  {
-    categoryId: 'design',
-    id: 'devto-css',
-    limit: 6,
-    name: 'DEV Community',
-    sourceUrl: 'https://dev.to/t/css',
-    type: 'devto',
-    url: 'https://dev.to/api/articles?tag=css&top=7&per_page=6',
-  },
-  {
-    categoryId: 'engineering',
-    id: 'hacker-news-top',
-    itemUrlBase: 'https://hacker-news.firebaseio.com/v0/item',
-    limit: 6,
-    listUrl: 'https://hacker-news.firebaseio.com/v0/topstories.json',
-    name: 'Hacker News',
-    sourceUrl: 'https://news.ycombinator.com/',
-    type: 'hacker-news',
-  },
-];
-
-const fallbackPostCovers: Record<PostCategoryId, string[]> = {
-  culture: [
-    'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=85',
-  ],
-  design: [
-    'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=85',
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=85',
-  ],
-  engineering: [
-    'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=85',
-    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=85',
-    'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=85',
-  ],
-  notes: [
-    'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1400&q=85',
-  ],
-};
-
-function isSubscribedPost(post: ApiPost) {
-  return Boolean(post.sourceId && post.externalUrl);
-}
-
-function decodeHtmlEntities(value: string) {
-  const namedEntities: Record<string, string> = {
-    amp: '&',
-    apos: "'",
-    gt: '>',
-    lt: '<',
-    nbsp: ' ',
-    quot: '"',
-  };
-
-  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
-    if (entity.startsWith('#x')) {
-      const codePoint = Number.parseInt(entity.slice(2), 16);
-      return isValidCodePoint(codePoint) ? String.fromCodePoint(codePoint) : match;
-    }
-
-    if (entity.startsWith('#')) {
-      const codePoint = Number.parseInt(entity.slice(1), 10);
-      return isValidCodePoint(codePoint) ? String.fromCodePoint(codePoint) : match;
-    }
-
-    return namedEntities[entity.toLowerCase()] ?? match;
-  });
-}
-
-function isValidCodePoint(value: number) {
-  return Number.isInteger(value) && value >= 0 && value <= 0x10ffff;
-}
-
-function cleanSubscriptionText(value = '') {
-  return decodeHtmlEntities(value)
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function truncateText(value: string, maxLength: number) {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  return `${value.slice(0, maxLength - 1).trim()}...`;
-}
-
-function dateOnlyFromValue(value?: number | string) {
-  const date =
-    typeof value === 'number' ? new Date(value * 1000) : value ? new Date(value) : new Date();
-
-  if (Number.isNaN(date.getTime())) {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  return date.toISOString().slice(0, 10);
-}
-
-function selectPostCover(categoryId: PostCategoryId, seed: number | string) {
-  const covers = fallbackPostCovers[categoryId] ?? fallbackPostCovers.engineering;
-  const seedText = String(seed);
-  const seedValue = [...seedText].reduce((total, char) => total + char.charCodeAt(0), 0);
-  return covers[seedValue % covers.length];
-}
-
-function mapDevToCategory(tags: string[] | undefined, fallback: PostCategoryId): PostCategoryId {
-  const normalized = (tags ?? []).map((tag) => tag.toLowerCase());
-
-  if (normalized.some((tag) => ['css', 'design', 'ui', 'ux'].includes(tag))) {
-    return 'design';
-  }
-
-  if (normalized.some((tag) => ['career', 'community', 'discuss'].includes(tag))) {
-    return 'culture';
-  }
-
-  return fallback;
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'EchoJournal/0.1 article-subscription',
-    },
-    signal: AbortSignal.timeout(subscriptionRequestTimeoutMs),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Subscription request failed: ${response.status} ${url}`);
-  }
-
-  return response.json() as Promise<T>;
-}
-
-function toDevToPost(article: DevToArticle, source: Extract<ArticleSubscriptionSource, { type: 'devto' }>): ApiPost {
-  const categoryId = mapDevToCategory(article.tag_list, source.categoryId);
-  const externalUrl = article.canonical_url || article.url;
-  const excerpt = truncateText(cleanSubscriptionText(article.description || article.title), 220);
-  const author = article.user?.name || article.user?.username || source.name;
-  const date = dateOnlyFromValue(article.published_timestamp || article.published_at);
-
-  return {
-    authorId: `source-${source.id}`,
-    categoryId,
-    content: {
-      'en-US': {
-        author,
-        body: [
-          `This subscribed article comes from ${source.name}.`,
-          excerpt,
-          'Open the original source for the complete article.',
-        ],
-        excerpt,
-        title: cleanSubscriptionText(article.title),
-      },
-      'zh-CN': {
-        author,
-        body: [
-          `\u8fd9\u662f\u4e00\u7bc7\u6765\u81ea ${source.name} \u7684\u7b2c\u4e09\u65b9\u8ba2\u9605\u6587\u7ae0\u3002`,
-          excerpt,
-          '\u70b9\u51fb\u4e0b\u65b9\u300c\u9605\u8bfb\u539f\u6587\u300d\u6253\u5f00\u6765\u6e90\u7f51\u7ad9\u67e5\u770b\u5b8c\u6574\u5185\u5bb9\u3002',
-        ],
-        excerpt,
-        title: cleanSubscriptionText(article.title),
-      },
-    },
-    cover: article.cover_image || article.social_image || selectPostCover(categoryId, article.id),
-    date,
-    externalUrl,
-    id: `sub-${source.id}-${article.id}`,
-    publishedAt: date,
-    readingMinutes: Math.max(1, article.reading_time_minutes ?? 3),
-    sourceId: source.id,
-    sourceName: source.name,
-    sourceUrl: source.sourceUrl,
-    status: 'published',
-  };
-}
-
-function toHackerNewsPost(story: HackerNewsStory, source: Extract<ArticleSubscriptionSource, { type: 'hacker-news' }>): ApiPost | null {
-  if (!story.title || !story.url || story.type !== 'story') {
-    return null;
-  }
-
-  const date = dateOnlyFromValue(story.time);
-  const excerpt = truncateText(
-    `Score ${story.score ?? 0}, ${story.descendants ?? 0} comments. Curated from Hacker News top stories.`,
-    220,
-  );
-  const discussionUrl = `https://news.ycombinator.com/item?id=${story.id}`;
-
-  return {
-    authorId: `source-${source.id}`,
-    categoryId: source.categoryId,
-    content: {
-      'en-US': {
-        author: story.by || source.name,
-        body: [
-          `This subscribed link comes from ${source.name}.`,
-          excerpt,
-          `Discussion: ${discussionUrl}`,
-          'Open the original source for the complete article.',
-        ],
-        excerpt,
-        title: cleanSubscriptionText(story.title),
-      },
-      'zh-CN': {
-        author: story.by || source.name,
-        body: [
-          `\u8fd9\u662f\u4e00\u7bc7\u6765\u81ea ${source.name} \u7684\u7b2c\u4e09\u65b9\u8ba2\u9605\u94fe\u63a5\u3002`,
-          `\u70ed\u5ea6 ${story.score ?? 0}\uff0c\u8bc4\u8bba ${story.descendants ?? 0}\u3002`,
-          `\u8ba8\u8bba\u9875\uff1a${discussionUrl}`,
-          '\u70b9\u51fb\u4e0b\u65b9\u300c\u9605\u8bfb\u539f\u6587\u300d\u6253\u5f00\u6765\u6e90\u7f51\u7ad9\u67e5\u770b\u5b8c\u6574\u5185\u5bb9\u3002',
-        ],
-        excerpt,
-        title: cleanSubscriptionText(story.title),
-      },
-    },
-    cover: selectPostCover(source.categoryId, story.id),
-    date,
-    externalUrl: story.url,
-    id: `sub-${source.id}-${story.id}`,
-    publishedAt: date,
-    readingMinutes: 3,
-    sourceId: source.id,
-    sourceName: source.name,
-    sourceUrl: source.sourceUrl,
-    status: 'published',
-  };
-}
-
-function isProgrammingHackerNewsStory(story: HackerNewsStory) {
-  const text = `${story.title ?? ''} ${story.url ?? ''}`.toLowerCase();
-  const keywords = [
-    'api',
-    'backend',
-    'browser',
-    'cli',
-    'code',
-    'compiler',
-    'css',
-    'database',
-    'developer',
-    'docker',
-    'frontend',
-    'git',
-    'github',
-    'html',
-    'javascript',
-    'kernel',
-    'kubernetes',
-    'linux',
-    'llm',
-    'node',
-    'open-source',
-    'opensource',
-    'postgres',
-    'programming',
-    'python',
-    'react',
-    'rust',
-    'sqlite',
-    'terminal',
-    'typescript',
-  ];
-
-  return keywords.some((keyword) => text.includes(keyword));
-}
-
-async function fetchSourcePosts(source: ArticleSubscriptionSource): Promise<ApiPost[]> {
-  if (source.type === 'devto') {
-    const articles = await fetchJson<DevToArticle[]>(source.url);
-    return articles.slice(0, source.limit).map((article) => toDevToPost(article, source));
-  }
-
-  const ids = await fetchJson<number[]>(source.listUrl);
-  const stories = await Promise.all(
-    ids.slice(0, source.limit * 5).map(async (id) => {
-      try {
-        return await fetchJson<HackerNewsStory>(`${source.itemUrlBase}/${id}.json`);
-      } catch {
-        return null;
-      }
-    }),
-  );
-
-  return stories
-    .filter((story): story is HackerNewsStory => Boolean(story))
-    .filter(isProgrammingHackerNewsStory)
-    .map((story) => toHackerNewsPost(story, source))
-    .filter((story): story is ApiPost => Boolean(story))
-    .slice(0, source.limit);
-}
-
-function dedupePosts(nextPosts: ApiPost[]) {
-  const seen = new Set<string>();
-  const result: ApiPost[] = [];
-
-  for (const post of nextPosts) {
-    const key = (post.externalUrl || post.content['en-US'].title).toLowerCase();
-
-    if (seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    result.push(post);
-  }
-
-  return result
-    .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))
-    .slice(0, subscribedPostLimit);
-}
-
-async function refreshSubscribedPosts(force = false) {
-  if (!force && Date.now() - postSubscriptionLastRefresh < postSubscriptionRefreshMs && posts.length) {
-    return posts;
-  }
-
-  if (!postSubscriptionRefreshPromise) {
-    postSubscriptionRefreshPromise = (async () => {
-      const results = await Promise.allSettled(articleSubscriptionSources.map((source) => fetchSourcePosts(source)));
-      const nextPosts = dedupePosts(results.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])));
-
-      if (nextPosts.length) {
-        posts = nextPosts;
-        postSubscriptionLastRefresh = Date.now();
-        await savePosts();
-      }
-
-      return posts;
-    })().finally(() => {
-      postSubscriptionRefreshPromise = null;
-    });
-  }
-
-  return postSubscriptionRefreshPromise;
-}
-
 function splitDocText(value: string) {
   return value
     .split(/\r?\n+/)
@@ -1142,7 +716,7 @@ async function loadPosts() {
 
   try {
     const content = await readFile(postsStorePath, 'utf8');
-    posts = (JSON.parse(content) as ApiPost[]).filter(isSubscribedPost);
+    posts = JSON.parse(content) as ApiPost[];
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw error;
@@ -1151,10 +725,6 @@ async function loadPosts() {
     posts = [];
     await savePosts();
   }
-
-  void refreshSubscribedPosts(true).catch((error) => {
-    server.log.warn({ err: error }, 'Article subscription refresh failed');
-  });
 }
 
 async function savePosts() {
@@ -1426,8 +996,6 @@ server.get('/api/admin/overview', async (request, reply): Promise<{ modules: Adm
     } as never);
   }
 
-  await refreshSubscribedPosts();
-
   return {
     modules: [
       { module: 'articles', count: posts.length },
@@ -1647,8 +1215,6 @@ server.get<{ Params: { file: string } }>('/docs-html/:file', async (request, rep
 });
 
 server.get<{ Querystring: { status?: PostStatus } }>('/api/posts', async (request): Promise<ApiPost[]> => {
-  await refreshSubscribedPosts();
-
   if (!request.query.status) {
     return posts;
   }
@@ -1656,31 +1222,7 @@ server.get<{ Querystring: { status?: PostStatus } }>('/api/posts', async (reques
   return posts.filter((post) => post.status === request.query.status);
 });
 
-server.post('/api/posts/refresh', async (request, reply): Promise<{ ok: boolean; posts: ApiPost[]; refreshedAt: string }> => {
-  const user = requireAuthenticatedUser(request, reply);
-
-  if (!user) {
-    return undefined as never;
-  }
-
-  if (user.role !== 'admin') {
-    return reply.code(403).send({
-      message: 'Admin role is required',
-    } as never);
-  }
-
-  const refreshedPosts = await refreshSubscribedPosts(true);
-
-  return {
-    ok: true,
-    posts: refreshedPosts,
-    refreshedAt: new Date().toISOString(),
-  };
-});
-
 server.get<{ Params: { postId: string } }>('/api/posts/:postId', async (request, reply) => {
-  await refreshSubscribedPosts();
-
   const post = posts.find((item) => item.id === request.params.postId);
 
   if (!post) {

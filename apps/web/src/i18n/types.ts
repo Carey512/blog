@@ -37,7 +37,6 @@ export type LocaleMessages = {
   passwordLabel: string;
   protectedAction: string;
   readMore: string;
-  readOriginal: string;
   registerAction: string;
   registerError: string;
   registerIntro: string;
