@@ -146,3 +146,16 @@ export type ApiEndpointInfo = {
   auth: ApiAuthLevel;
   audiences: ApiAudience[];
 };
+
+export type AdminOverviewModule =
+  | 'articles'
+  | 'docs'
+  | 'music'
+  | 'tools'
+  | 'users'
+  | 'endpoints';
+
+export type AdminOverviewItem = {
+  module: AdminOverviewModule;
+  count: number;
+};

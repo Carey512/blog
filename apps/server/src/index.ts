@@ -10,6 +10,7 @@ import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {
+  AdminOverviewItem,
   ApiPost,
   ApiEndpointInfo,
   AuthLoginBody,
@@ -228,17 +229,27 @@ const endpointCatalog: ApiEndpointInfo[] = [
     method: 'POST',
     path: '/api/posts',
     title: '创建文章',
-    description: '登录用户提交文章，默认进入 review 审核状态。',
+    description: '管理员创建文章，当前固定发布到前台文章列表。',
     module: 'posts',
-    auth: 'user',
-    audiences: ['web', 'admin'],
+    auth: 'admin',
+    audiences: ['admin'],
+  },
+  {
+    id: 'admin-overview',
+    method: 'GET',
+    path: '/api/admin/overview',
+    title: '后台总览',
+    description: '后台总览页读取模块和数量，不加载各模块列表。',
+    module: 'system',
+    auth: 'admin',
+    audiences: ['admin'],
   },
   {
     id: 'posts-update',
     method: 'PUT',
     path: '/api/posts/:postId',
     title: '更新文章',
-    description: '管理员更新文章标题、摘要、正文、分类、状态和封面。',
+    description: '管理员更新文章标题、摘要、正文、分类和封面。',
     module: 'posts',
     auth: 'admin',
     audiences: ['admin'],
@@ -288,7 +299,7 @@ const endpointCatalog: ApiEndpointInfo[] = [
     method: 'POST',
     path: '/api/music',
     title: '新增音乐',
-    description: '登录用户新增外部音乐链接。',
+    description: '登录用户新增音乐元数据；音频文件通过上传接口保存。',
     module: 'music',
     auth: 'user',
     audiences: ['admin'],
@@ -298,7 +309,7 @@ const endpointCatalog: ApiEndpointInfo[] = [
     method: 'POST',
     path: '/api/music/upload',
     title: '上传音乐',
-    description: '登录用户上传本地音频文件并生成可播放地址。',
+    description: '登录用户上传音频文件并生成可播放地址。',
     module: 'music',
     auth: 'user',
     audiences: ['admin'],
@@ -308,7 +319,7 @@ const endpointCatalog: ApiEndpointInfo[] = [
     method: 'PUT',
     path: '/api/music/:musicId',
     title: '更新音乐',
-    description: '管理员更新音乐标题、歌手、专辑、分类、封面和来源。',
+    description: '管理员更新音乐标题、歌手、专辑、分类和封面。',
     module: 'music',
     auth: 'admin',
     audiences: ['admin'],
@@ -379,86 +390,6 @@ type AboutCard = {
   id: string;
   title: Record<Locale, string>;
 };
-
-type DemoAudioSpec = {
-  bpm: number;
-  fileName: string;
-  gain: number;
-  harmonic: number;
-  notes: number[];
-};
-
-const demoAudioSpecs: DemoAudioSpec[] = [
-  { bpm: 82, fileName: 'demo-nanfang-laixin.wav', gain: 0.34, harmonic: 0.18, notes: [261.63, 329.63, 392, 440, 392, 329.63, 293.66, 349.23] },
-  { bpm: 96, fileName: 'demo-wanfengli.wav', gain: 0.3, harmonic: 0.24, notes: [220, 277.18, 329.63, 369.99, 415.3, 369.99, 329.63, 277.18] },
-  { bpm: 74, fileName: 'demo-wugang.wav', gain: 0.36, harmonic: 0.12, notes: [196, 246.94, 293.66, 349.23, 392, 349.23, 293.66, 246.94] },
-  { bpm: 110, fileName: 'demo-qingchen-bashi.wav', gain: 0.28, harmonic: 0.2, notes: [293.66, 349.23, 440, 523.25, 493.88, 440, 349.23, 293.66] },
-  { bpm: 68, fileName: 'demo-yueguang-wuding.wav', gain: 0.32, harmonic: 0.28, notes: [174.61, 220, 261.63, 329.63, 392, 329.63, 261.63, 220] },
-  { bpm: 104, fileName: 'demo-jiujiekou.wav', gain: 0.31, harmonic: 0.16, notes: [246.94, 311.13, 369.99, 466.16, 415.3, 369.99, 311.13, 246.94] },
-  { bpm: 88, fileName: 'demo-haibian-bianlidian.wav', gain: 0.33, harmonic: 0.22, notes: [233.08, 293.66, 349.23, 440, 523.25, 440, 349.23, 293.66] },
-  { bpm: 78, fileName: 'demo-xinghe-manman.wav', gain: 0.29, harmonic: 0.3, notes: [207.65, 261.63, 329.63, 415.3, 493.88, 415.3, 329.63, 261.63] },
-  { bpm: 92, fileName: 'demo-yuxiang.wav', gain: 0.3, harmonic: 0.2, notes: [261.63, 293.66, 349.23, 392, 466.16, 392, 349.23, 293.66] },
-  { bpm: 86, fileName: 'demo-jiangnan-wuhou.wav', gain: 0.31, harmonic: 0.18, notes: [220, 261.63, 329.63, 392, 440, 392, 329.63, 261.63] },
-  { bpm: 100, fileName: 'demo-blog-radio.wav', gain: 0.27, harmonic: 0.26, notes: [185, 233.08, 277.18, 369.99, 440, 369.99, 277.18, 233.08] },
-];
-
-function createDemoWav(spec: DemoAudioSpec) {
-  const sampleRate = 22050;
-  const seconds = 14;
-  const channels = 1;
-  const bytesPerSample = 2;
-  const samples = sampleRate * seconds;
-  const dataSize = samples * channels * bytesPerSample;
-  const buffer = Buffer.alloc(44 + dataSize);
-  const beatLength = 60 / spec.bpm;
-
-  buffer.write('RIFF', 0, 'ascii');
-  buffer.writeUInt32LE(36 + dataSize, 4);
-  buffer.write('WAVE', 8, 'ascii');
-  buffer.write('fmt ', 12, 'ascii');
-  buffer.writeUInt32LE(16, 16);
-  buffer.writeUInt16LE(1, 20);
-  buffer.writeUInt16LE(channels, 22);
-  buffer.writeUInt32LE(sampleRate, 24);
-  buffer.writeUInt32LE(sampleRate * channels * bytesPerSample, 28);
-  buffer.writeUInt16LE(channels * bytesPerSample, 32);
-  buffer.writeUInt16LE(bytesPerSample * 8, 34);
-  buffer.write('data', 36, 'ascii');
-  buffer.writeUInt32LE(dataSize, 40);
-
-  for (let index = 0; index < samples; index += 1) {
-    const time = index / sampleRate;
-    const beatIndex = Math.floor(time / beatLength);
-    const localBeatTime = time - beatIndex * beatLength;
-    const frequency = spec.notes[beatIndex % spec.notes.length];
-    const harmony = spec.notes[(beatIndex + 2) % spec.notes.length] / 2;
-    const fade = Math.max(
-      0,
-      Math.min(1, localBeatTime / 0.04, (beatLength - localBeatTime) / 0.1),
-    );
-    const pulse = localBeatTime < 0.05
-      ? Math.sin(2 * Math.PI * 88 * localBeatTime) * (1 - localBeatTime / 0.05) * 0.12
-      : 0;
-    const wave =
-      Math.sin(2 * Math.PI * frequency * time) +
-      Math.sin(2 * Math.PI * frequency * 2 * time) * spec.harmonic +
-      Math.sin(2 * Math.PI * harmony * time) * 0.32 +
-      pulse;
-    const sample = Math.max(-1, Math.min(1, wave * spec.gain * fade));
-
-    buffer.writeInt16LE(Math.round(sample * 32767), 44 + index * 2);
-  }
-
-  return buffer;
-}
-
-async function ensureDemoAudioFiles() {
-  await Promise.all(
-    demoAudioSpecs.map((spec) =>
-      writeFile(join(musicUploadDir, spec.fileName), createDemoWav(spec)),
-    ),
-  );
-}
 
 let aboutCards: AboutCard[] = [];
 let categories: Category[] = [];
@@ -881,7 +812,6 @@ await server.register(cors, {
 });
 
 await mkdir(musicUploadDir, { recursive: true });
-await ensureDemoAudioFiles();
 await loadAboutCards();
 await loadCategories();
 await loadDocs();
@@ -1051,6 +981,31 @@ server.get('/api/meta/endpoints', async (request, reply): Promise<ApiEndpointInf
   }
 
   return endpointCatalog;
+});
+
+server.get('/api/admin/overview', async (request, reply): Promise<{ modules: AdminOverviewItem[] }> => {
+  const user = requireAuthenticatedUser(request, reply);
+
+  if (!user) {
+    return undefined as never;
+  }
+
+  if (user.role !== 'admin') {
+    return reply.code(403).send({
+      message: 'Admin role is required',
+    } as never);
+  }
+
+  return {
+    modules: [
+      { module: 'articles', count: posts.length },
+      { module: 'docs', count: docs.length },
+      { module: 'music', count: favoriteMusic.length },
+      { module: 'tools', count: 2 },
+      { module: 'users', count: userAccounts.length },
+      { module: 'endpoints', count: endpointCatalog.length },
+    ],
+  };
 });
 
 server.get('/api/categories', async (): Promise<Category[]> => categories);
@@ -1286,6 +1241,12 @@ server.post<{ Body: CreatePostBody }>('/api/posts', async (request, reply): Prom
     return undefined as never;
   }
 
+  if (user.role !== 'admin') {
+    return reply.code(403).send({
+      message: 'Admin role is required',
+    } as never);
+  }
+
   const now = new Date();
   const fallbackTitle = request.body.content['en-US'].title || request.body.content['zh-CN'].title;
   const idBase = fallbackTitle
@@ -1306,7 +1267,7 @@ server.post<{ Body: CreatePostBody }>('/api/posts', async (request, reply): Prom
     featured: request.body.featured ?? false,
     publishedAt: now.toISOString().slice(0, 10),
     readingMinutes: request.body.readingMinutes ?? 5,
-    status: request.body.status,
+    status: 'published',
   };
 
   posts.unshift(post);
@@ -1434,15 +1395,15 @@ server.post<{ Body: CreateMusicBody }>('/api/music', async (request, reply): Pro
   const track: FavoriteMusic = {
     id: `music-${Date.now()}`,
     artist: request.body.artist,
-    audioUrl: request.body.audioUrl,
+    audioUrl: undefined,
     album: request.body.album,
     categoryId: normalizeMusicCategory(request.body.categoryId, 'personal'),
     cover: request.body.cover,
     createdAt: now,
     platform: request.body.platform,
-    source: request.body.audioUrl ? 'external' : 'external',
+    source: 'upload',
     title: request.body.title,
-    url: request.body.url,
+    url: undefined,
   };
 
   favoriteMusic.unshift(track);
@@ -1488,7 +1449,7 @@ server.post('/api/music/upload', async (request, reply): Promise<FavoriteMusic> 
     categoryId: normalizeMusicCategory(fields.categoryId, 'personal'),
     cover: fields.cover || undefined,
     createdAt: new Date().toISOString(),
-    platform: 'Local Upload',
+    platform: undefined,
     source: 'upload',
     title: fields.title,
     url: uploadedAudioUrl,
@@ -1524,18 +1485,17 @@ server.put<{ Body: CreateMusicBody; Params: { musicId: string } }>(
     }
 
     const previous = favoriteMusic[index];
-    const audioUrl = request.body.audioUrl || previous.audioUrl;
     const updated: FavoriteMusic = {
       ...previous,
       album: request.body.album || undefined,
       artist: request.body.artist,
-      audioUrl,
+      audioUrl: previous.audioUrl,
       categoryId: normalizeMusicCategory(request.body.categoryId, previous.categoryId),
       cover: request.body.cover || undefined,
       platform: request.body.platform || previous.platform,
-      source: audioUrl?.startsWith('/uploads/') ? 'upload' : 'external',
+      source: previous.source,
       title: request.body.title,
-      url: request.body.url || audioUrl || previous.url,
+      url: previous.url,
     };
 
     favoriteMusic[index] = updated;

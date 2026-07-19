@@ -1,4 +1,5 @@
 import type {
+  AdminOverviewItem,
   ApiEndpointInfo,
   ApiPost,
   AuthLoginResponse,
@@ -60,6 +61,12 @@ export const adminApi = {
 
   health() {
     return request<{ ok: boolean; service: string; time: string }>('/health');
+  },
+
+  overview(token: string) {
+    return request<{ modules: AdminOverviewItem[] }>('/api/admin/overview', {
+      headers: authorizationHeader(token),
+    });
   },
 
   login(email: string, password: string) {
@@ -175,14 +182,6 @@ export const adminApi = {
 
   musicCategories() {
     return request<MusicCategory[]>('/api/music/categories');
-  },
-
-  createMusic(body: CreateMusicBody, token: string) {
-    return request<FavoriteMusic>('/api/music', {
-      body: JSON.stringify(body),
-      headers: authorizationHeader(token),
-      method: 'POST',
-    });
   },
 
   uploadMusic(formData: FormData, token: string) {

@@ -148,7 +148,6 @@ export type LocaleMessages = {
   musicNowPlaying: string;
   musicPause: string;
   musicNoAudio: string;
-  openSource: string;
   switchToLogin: string;
   switchToRegister: string;
   newsletterTitle: string;

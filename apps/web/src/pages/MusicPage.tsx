@@ -1,5 +1,4 @@
 import {
-  ExternalLink,
   Headphones,
   Music2,
   Pause,
@@ -40,7 +39,6 @@ export function MusicPage() {
   const [submitting, setSubmitting] = useState(false);
   const [title, setTitle] = useState('');
   const [tracks, setTracks] = useState<FavoriteMusic[]>([]);
-  const [url, setUrl] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -127,33 +125,21 @@ export function MusicPage() {
     setMessage('');
     setSubmitting(true);
 
-    try {
-      let created: FavoriteMusic;
+    if (!file) {
+      setMessage('请先选择音频文件。');
+      setSubmitting(false);
+      return;
+    }
 
-      if (file) {
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('artist', artist);
-        formData.append('categoryId', musicCategoryId);
-        formData.append('album', album);
-        formData.append('cover', cover);
-        formData.append('file', file);
-        created = await musicService.uploadMusic(formData, token);
-      } else {
-        created = await musicService.createMusic(
-          {
-            album: album || undefined,
-            artist,
-            audioUrl: url || undefined,
-            categoryId: musicCategoryId,
-            cover: cover || undefined,
-            platform: url ? 'External Audio' : undefined,
-            title,
-            url: url || undefined,
-          },
-          token,
-        );
-      }
+    try {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('artist', artist);
+      formData.append('categoryId', musicCategoryId);
+      formData.append('album', album);
+      formData.append('cover', cover);
+      formData.append('file', file);
+      const created = await musicService.uploadMusic(formData, token);
 
       setTracks((currentTracks) => [created, ...currentTracks]);
       setMessage(`已保存音乐：${created.title}`);
@@ -162,10 +148,9 @@ export function MusicPage() {
       setCover('');
       setFile(null);
       setTitle('');
-      setUrl('');
       setShowUpload(false);
     } catch {
-      setMessage('保存失败，请确认已登录、接口已部署，并选择音频文件或填写音频链接。');
+      setMessage('保存失败，请确认已登录、接口已部署，并选择音频文件。');
     } finally {
       setSubmitting(false);
     }
@@ -230,14 +215,9 @@ export function MusicPage() {
                   )}
                 </div>
                 <div className="p-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-base font-semibold text-foreground sm:text-lg">{track.title}</h2>
-                      <p className="mt-0.5 truncate text-xs text-muted sm:text-sm">{formatTrackLine(track)}</p>
-                    </div>
-                    <span className="shrink-0 rounded-md bg-surface-muted px-1.5 py-1 text-[11px] font-semibold text-primary">
-                      {track.source}
-                    </span>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-base font-semibold text-foreground sm:text-lg">{track.title}</h2>
+                    <p className="mt-0.5 truncate text-xs text-muted sm:text-sm">{formatTrackLine(track)}</p>
                   </div>
 
                   {track.audioUrl ? (
@@ -264,17 +244,6 @@ export function MusicPage() {
                       <Headphones className="h-3.5 w-3.5" aria-hidden="true" />
                       {track.platform ?? 'Music'}
                     </span>
-                    {track.url ? (
-                      <a
-                        className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-surface-muted px-2 text-xs font-semibold text-primary"
-                        href={musicService.resolveUrl(track.url)}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {t.openSource}
-                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                      </a>
-                    ) : null}
                   </div>
                 </div>
               </article>
@@ -324,7 +293,6 @@ export function MusicPage() {
               </label>
               <MusicModalField label="专辑" onChange={setAlbum} value={album} />
               <MusicModalField label="封面 URL" onChange={setCover} value={cover} />
-              <MusicModalField label="外部音频 URL" onChange={setUrl} value={url} />
               <label className="block text-sm font-medium text-foreground">
                 本地音频文件
                 <input
@@ -336,7 +304,7 @@ export function MusicPage() {
               </label>
             </div>
             <div className="rounded-lg bg-surface-muted p-3 text-sm leading-6 text-muted">
-              优先上传本地音频；如果不选择文件，则使用外部音频 URL 保存。
+              请选择音频文件上传，保存后会在音乐列表中播放。
             </div>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"

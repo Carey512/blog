@@ -1,6 +1,7 @@
 import {
   BookOpenCheck,
   BookOpenText,
+  Check,
   Clock3,
   Eye,
   Gauge,
@@ -8,7 +9,6 @@ import {
   Link as LinkIcon,
   LogIn,
   LogOut,
-  Megaphone,
   Globe2,
   Music2,
   Newspaper,
@@ -25,15 +25,23 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
+import {
+  BrowserRouter,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom';
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
 } from 'react';
 import type {
+  AdminOverviewItem,
   ApiAudience,
   ApiEndpointInfo,
   ApiPost,
@@ -44,7 +52,6 @@ import type {
   MusicCategory,
   MusicCategoryId,
   PostCategoryId,
-  PostStatus,
   UpdatePostBody,
   User,
   WorkDoc,
@@ -53,6 +60,7 @@ import type {
 import { adminApi, apiBaseUrl } from './api';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
+type AdminDataKey = 'articles' | 'docs' | 'endpoints' | 'music' | 'users';
 
 const adminAuthStorageKey = 'blog-admin-auth';
 const routerBasename = resolveRouterBasename(import.meta.env.BASE_URL);
@@ -251,14 +259,25 @@ function AdminConsole({
   auth: AuthLoginResponse;
   onLogout: () => void;
 }) {
+  const location = useLocation();
   const [serverState, setServerState] = useState<LoadState>('idle');
   const [apiEndpoints, setApiEndpoints] = useState<ApiEndpointInfo[]>([]);
   const [docs, setDocs] = useState<WorkDoc[]>([]);
   const [docActionMessage, setDocActionMessage] = useState('');
+  const [overviewItems, setOverviewItems] = useState<AdminOverviewItem[]>([]);
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [music, setMusic] = useState<FavoriteMusic[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [loadedData, setLoadedData] = useState<Record<AdminDataKey, boolean>>({
+    articles: false,
+    docs: false,
+    endpoints: false,
+    music: false,
+    users: false,
+  });
   const [deleteUserMessage, setDeleteUserMessage] = useState('');
+  const [successToast, setSuccessToast] = useState('');
+  const successToastTimer = useRef<number | null>(null);
   const [userSearch, setUserSearch] = useState('');
 
   const [postTitleZh, setPostTitleZh] = useState('后台发布的新文章');
@@ -270,7 +289,6 @@ function AdminConsole({
     'This post comes from the admin app and appears on the public site after publishing.',
   );
   const [postCategoryId, setPostCategoryId] = useState<PostCategoryId>('notes');
-  const [postStatus, setPostStatus] = useState<PostStatus>('published');
   const [createPostMessage, setCreatePostMessage] = useState('');
   const [postActionMessage, setPostActionMessage] = useState('');
 
@@ -281,51 +299,169 @@ function AdminConsole({
   const [musicCategoryId, setMusicCategoryId] =
     useState<MusicCategoryId>('mandarin');
   const [musicCover, setMusicCover] = useState('');
-  const [musicUrl, setMusicUrl] = useState('');
   const [musicFile, setMusicFile] = useState<File | null>(null);
   const [createMusicMessage, setCreateMusicMessage] = useState('');
   const [musicActionMessage, setMusicActionMessage] = useState('');
 
-  async function loadOverview() {
+  function markDataLoaded(key: AdminDataKey) {
+    setLoadedData(current => ({
+      ...current,
+      [key]: true,
+    }));
+  }
+
+  async function loadDashboardSummary() {
     try {
       setServerState('loading');
-      const [
-        health,
-        postList,
-        musicList,
-        userList,
-        endpointList,
-        docList,
-        musicCategoryList,
-      ] = await Promise.all([
-        adminApi.health(),
-        adminApi.posts(),
-        adminApi.favoriteMusic(),
-        adminApi.users(auth.token),
-        adminApi.endpoints(auth.token),
-        adminApi.docs(),
-        adminApi.musicCategories().catch(() => []),
-      ]);
-      setPosts(postList);
-      setMusic(musicList);
-      setUsers(userList);
-      setApiEndpoints(endpointList);
-      setDocs(docList);
-      setMusicCategories(musicCategoryList);
-      setServerState(health.ok ? 'ready' : 'error');
+      const overview = await adminApi.overview(auth.token);
+      setOverviewItems(overview.modules);
+      setServerState('ready');
     } catch {
       setServerState('error');
     }
   }
 
-  useEffect(() => {
-    void loadOverview();
-  }, []);
+  async function loadArticles(force = false) {
+    if (!force && loadedData.articles) {
+      return;
+    }
 
-  const publishedCount = useMemo(
-    () => posts.filter(post => post.status === 'published').length,
-    [posts],
+    try {
+      setServerState('loading');
+      const postList = await adminApi.posts();
+      setPosts(postList);
+      markDataLoaded('articles');
+      setServerState('ready');
+    } catch {
+      setServerState('error');
+    }
+  }
+
+  async function loadDocs(force = false) {
+    if (!force && loadedData.docs) {
+      return;
+    }
+
+    try {
+      setServerState('loading');
+      const docList = await adminApi.docs();
+      setDocs(docList);
+      markDataLoaded('docs');
+      setServerState('ready');
+    } catch {
+      setServerState('error');
+    }
+  }
+
+  async function loadMusic(force = false) {
+    if (!force && loadedData.music) {
+      return;
+    }
+
+    try {
+      setServerState('loading');
+      const [musicList, musicCategoryList] = await Promise.all([
+        adminApi.favoriteMusic(),
+        adminApi.musicCategories().catch(() => []),
+      ]);
+      setMusic(musicList);
+      setMusicCategories(musicCategoryList);
+      markDataLoaded('music');
+      setServerState('ready');
+    } catch {
+      setServerState('error');
+    }
+  }
+
+  async function loadUsers(force = false) {
+    if (!force && loadedData.users) {
+      return;
+    }
+
+    try {
+      setServerState('loading');
+      const userList = await adminApi.users(auth.token, userSearch);
+      setUsers(userList);
+      markDataLoaded('users');
+      setServerState('ready');
+    } catch {
+      setUsers([]);
+      setServerState('error');
+    }
+  }
+
+  async function loadEndpoints(force = false) {
+    if (!force && loadedData.endpoints) {
+      return;
+    }
+
+    try {
+      setServerState('loading');
+      const endpointList = await adminApi.endpoints(auth.token);
+      setApiEndpoints(endpointList);
+      markDataLoaded('endpoints');
+      setServerState('ready');
+    } catch {
+      setServerState('error');
+    }
+  }
+
+  async function loadRouteData(pathname: string) {
+    if (pathname === '/') {
+      await loadDashboardSummary();
+      return;
+    }
+
+    if (pathname.startsWith('/articles')) {
+      await loadArticles();
+      return;
+    }
+
+    if (pathname.startsWith('/docs')) {
+      await loadDocs();
+      return;
+    }
+
+    if (pathname.startsWith('/music')) {
+      await loadMusic();
+      return;
+    }
+
+    if (pathname.startsWith('/users')) {
+      await loadUsers();
+      return;
+    }
+
+    if (pathname.startsWith('/api-config')) {
+      await loadEndpoints();
+    }
+  }
+
+  useEffect(() => {
+    void loadRouteData(location.pathname);
+  }, [location.pathname]);
+
+  useEffect(
+    () => () => {
+      if (successToastTimer.current) {
+        window.clearTimeout(successToastTimer.current);
+      }
+    },
+    [],
   );
+
+  function showSuccessToast(message: string) {
+    setSuccessToast(message);
+
+    if (successToastTimer.current) {
+      window.clearTimeout(successToastTimer.current);
+    }
+
+    successToastTimer.current = window.setTimeout(() => {
+      setSuccessToast('');
+      successToastTimer.current = null;
+    }, 2200);
+  }
 
   async function handleUserSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -333,6 +469,7 @@ function AdminConsole({
     try {
       const userList = await adminApi.users(auth.token, userSearch);
       setUsers(userList);
+      markDataLoaded('users');
     } catch {
       setUsers([]);
     }
@@ -350,7 +487,7 @@ function AdminConsole({
       await adminApi.deleteUser(auth.token, user.id);
       const userList = await adminApi.users(auth.token, userSearch);
       setUsers(userList);
-      setDeleteUserMessage(`已删除用户：${user.name}`);
+      showSuccessToast(`删除用户成功：${user.name}`);
     } catch {
       setDeleteUserMessage('删除失败，请确认账号权限和后端服务状态。');
       throw new Error('Delete user failed');
@@ -379,13 +516,13 @@ function AdminConsole({
         },
       },
       readingMinutes: 5,
-      status: postStatus,
+      status: 'published',
     };
 
     try {
       const created = await adminApi.createPost(body, auth.token);
-      setCreatePostMessage(`已创建：${created.content['zh-CN'].title}`);
-      await loadOverview();
+      setPosts(currentPosts => [created, ...currentPosts]);
+      showSuccessToast(`创建文章成功：${created.content['zh-CN'].title}`);
     } catch {
       setCreatePostMessage('创建失败，请确认登录状态和后端服务。');
     }
@@ -399,7 +536,7 @@ function AdminConsole({
       setPosts(currentPosts =>
         currentPosts.map(post => (post.id === updated.id ? updated : post)),
       );
-      setPostActionMessage(`已更新文章：${updated.content['zh-CN'].title}`);
+      showSuccessToast(`更新文章成功：${updated.content['zh-CN'].title}`);
       return updated;
     } catch {
       setPostActionMessage('更新失败，请确认管理员权限和后端服务状态。');
@@ -415,7 +552,7 @@ function AdminConsole({
       setPosts(currentPosts =>
         currentPosts.filter(item => item.id !== post.id),
       );
-      setPostActionMessage(`已删除文章：${post.content['zh-CN'].title}`);
+      showSuccessToast(`删除文章成功：${post.content['zh-CN'].title}`);
     } catch {
       setPostActionMessage('删除失败，请确认管理员权限和后端服务状态。');
       throw new Error('Delete post failed');
@@ -427,35 +564,24 @@ function AdminConsole({
     setCreateMusicMessage('');
     setMusicActionMessage('');
 
+    if (!musicFile) {
+      setCreateMusicMessage('请先选择音频文件。');
+      return;
+    }
+
     try {
-      let created: FavoriteMusic;
+      const formData = new FormData();
+      formData.append('title', musicTitle);
+      formData.append('artist', musicArtist);
+      formData.append('categoryId', musicCategoryId);
+      formData.append('album', musicAlbum);
+      formData.append('cover', musicCover);
+      formData.append('file', musicFile);
+      const created = await adminApi.uploadMusic(formData, auth.token);
 
-      if (musicFile) {
-        const formData = new FormData();
-        formData.append('title', musicTitle);
-        formData.append('artist', musicArtist);
-        formData.append('categoryId', musicCategoryId);
-        formData.append('album', musicAlbum);
-        formData.append('cover', musicCover);
-        formData.append('file', musicFile);
-        created = await adminApi.uploadMusic(formData, auth.token);
-      } else {
-        const body: CreateMusicBody = {
-          album: musicAlbum || undefined,
-          artist: musicArtist,
-          audioUrl: musicUrl || undefined,
-          categoryId: musicCategoryId,
-          cover: musicCover || undefined,
-          platform: musicUrl ? 'External Audio' : undefined,
-          title: musicTitle,
-          url: musicUrl || undefined,
-        };
-        created = await adminApi.createMusic(body, auth.token);
-      }
-
-      setCreateMusicMessage(`已保存音乐：${created.title}`);
       setMusicFile(null);
-      await loadOverview();
+      setMusic(currentMusic => [created, ...currentMusic]);
+      showSuccessToast(`保存音乐成功：${created.title}`);
     } catch {
       setCreateMusicMessage('保存失败，请确认登录状态、后端服务和文件大小。');
     }
@@ -469,7 +595,7 @@ function AdminConsole({
       setMusic(currentMusic =>
         currentMusic.map(track => (track.id === updated.id ? updated : track)),
       );
-      setMusicActionMessage(`已更新音乐：${updated.title}`);
+      showSuccessToast(`更新音乐成功：${updated.title}`);
       return updated;
     } catch {
       setMusicActionMessage('更新音乐失败，请确认管理员权限和后端服务状态。');
@@ -485,7 +611,7 @@ function AdminConsole({
       setMusic(currentMusic =>
         currentMusic.filter(item => item.id !== track.id),
       );
-      setMusicActionMessage(`已删除音乐：${track.title}`);
+      showSuccessToast(`删除音乐成功：${track.title}`);
     } catch {
       setMusicActionMessage('删除音乐失败，请确认管理员权限和后端服务状态。');
       throw new Error('Delete music failed');
@@ -498,7 +624,7 @@ function AdminConsole({
     try {
       const created = await adminApi.createDoc(formData, auth.token);
       setDocs(currentDocs => [created, ...currentDocs]);
-      setDocActionMessage(`已新增文档：${created.content['zh-CN'].title}`);
+      showSuccessToast(`新增文档成功：${created.content['zh-CN'].title}`);
       return created;
     } catch {
       setDocActionMessage('保存文档失败，请确认接口已部署并且账号有权限。');
@@ -514,7 +640,7 @@ function AdminConsole({
       setDocs(currentDocs =>
         currentDocs.map(doc => (doc.id === updated.id ? updated : doc)),
       );
-      setDocActionMessage(`已更新文档：${updated.content['zh-CN'].title}`);
+      showSuccessToast(`更新文档成功：${updated.content['zh-CN'].title}`);
       return updated;
     } catch {
       setDocActionMessage('更新文档失败，请确认接口已部署并且账号有权限。');
@@ -528,7 +654,7 @@ function AdminConsole({
     try {
       await adminApi.deleteDoc(doc.id, auth.token);
       setDocs(currentDocs => currentDocs.filter(item => item.id !== doc.id));
-      setDocActionMessage(`已删除文档：${doc.content['zh-CN'].title}`);
+      showSuccessToast(`删除文档成功：${doc.content['zh-CN'].title}`);
     } catch {
       setDocActionMessage('删除文档失败，请确认接口已部署并且账号有权限。');
       throw new Error('Delete doc failed');
@@ -537,6 +663,7 @@ function AdminConsole({
 
   return (
     <div className="min-h-screen bg-canvas text-ink">
+      {successToast ? <SuccessToast message={successToast} /> : null}
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-panel px-4 py-5 lg:block">
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand text-white">
@@ -614,9 +741,7 @@ function AdminConsole({
             <Route
               element={
                 <DashboardPage
-                  music={music}
-                  posts={posts}
-                  publishedCount={publishedCount}
+                  overviewItems={overviewItems}
                 />
               }
               path="/"
@@ -633,13 +758,11 @@ function AdminConsole({
                   postExcerptEn={postExcerptEn}
                   postExcerptZh={postExcerptZh}
                   posts={posts}
-                  postStatus={postStatus}
                   postTitleEn={postTitleEn}
                   postTitleZh={postTitleZh}
                   setPostCategoryId={setPostCategoryId}
                   setPostExcerptEn={setPostExcerptEn}
                   setPostExcerptZh={setPostExcerptZh}
-                  setPostStatus={setPostStatus}
                   setPostTitleEn={setPostTitleEn}
                   setPostTitleZh={setPostTitleZh}
                 />
@@ -671,7 +794,6 @@ function AdminConsole({
                   musicCover={musicCover}
                   musicFile={musicFile}
                   musicTitle={musicTitle}
-                  musicUrl={musicUrl}
                   onCreateMusic={handleCreateMusic}
                   onDeleteMusic={handleDeleteMusic}
                   onUpdateMusic={handleUpdateMusic}
@@ -681,7 +803,6 @@ function AdminConsole({
                   setMusicCover={setMusicCover}
                   setMusicFile={setMusicFile}
                   setMusicTitle={setMusicTitle}
-                  setMusicUrl={setMusicUrl}
                 />
               }
               path="/music"
@@ -731,65 +852,121 @@ function AdminConsole({
 }
 
 function DashboardPage({
-  music,
-  posts,
-  publishedCount,
+  overviewItems,
 }: {
-  music: FavoriteMusic[];
-  posts: ApiPost[];
-  publishedCount: number;
+  overviewItems: AdminOverviewItem[];
 }) {
+  function getModuleCount(module: AdminOverviewItem['module']) {
+    return overviewItems.find(item => item.module === module)?.count ?? 0;
+  }
+
+  const moduleItems = [
+    {
+      body: '管理员上传、编辑和删除文章内容。',
+      icon: <Newspaper />,
+      title: '文章管理',
+      to: '/articles',
+    },
+    {
+      body: '维护部署笔记、快捷操作和工作文档。',
+      icon: <BookOpenText />,
+      title: '笔记文档',
+      to: '/docs',
+    },
+    {
+      body: '上传音乐、维护曲目信息和分类。',
+      icon: <Music2 />,
+      title: '音乐管理',
+      to: '/music',
+    },
+    {
+      body: '管理前台工具入口、路由和数据来源。',
+      icon: <Wrench />,
+      title: '工具管理',
+      to: '/tools',
+    },
+    {
+      body: '查看注册用户，支持搜索和删除。',
+      icon: <UsersRound />,
+      title: '用户管理',
+      to: '/users',
+    },
+    {
+      body: '查看 Web/Admin 端接口清单和权限。',
+      icon: <LinkIcon />,
+      title: '接口配置',
+      to: '/api-config',
+    },
+    {
+      body: '后续接入 RSS、GitHub 和实时知识源。',
+      icon: <RadioTower />,
+      title: '知识源',
+      to: '/knowledge',
+    },
+    {
+      body: '后续接入分享卡片和公开分享页。',
+      icon: <Share2 />,
+      title: '分享配置',
+      to: '/sharing',
+    },
+  ];
+
   return (
-    <section className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <MetricCard
           color="brand"
           icon={<BookOpenCheck />}
-          label="文章总数"
-          value={posts.length}
+          label="文章"
+          value={getModuleCount('articles')}
         />
         <MetricCard
           color="mint"
-          icon={<Newspaper />}
-          label="已发布"
-          value={publishedCount}
-        />
-        <MetricCard
-          color="amber"
-          icon={<Megaphone />}
-          label="待处理"
-          value={posts.length - publishedCount}
+          icon={<BookOpenText />}
+          label="笔记"
+          value={getModuleCount('docs')}
         />
         <MetricCard
           color="coral"
           icon={<Headphones />}
-          label="音乐总数"
-          value={music.length}
+          label="音乐"
+          value={getModuleCount('music')}
+        />
+        <MetricCard
+          color="amber"
+          icon={<Wrench />}
+          label="工具"
+          value={getModuleCount('tools')}
+        />
+        <MetricCard
+          color="brand"
+          icon={<UsersRound />}
+          label="用户"
+          value={getModuleCount('users')}
+        />
+        <MetricCard
+          color="mint"
+          icon={<LinkIcon />}
+          label="接口数"
+          value={getModuleCount('endpoints')}
         />
       </div>
-      <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
-        <h2 className="text-lg font-semibold">模块入口</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <ModuleHint
-            icon={<Newspaper />}
-            title="文章"
-            body="发布后进入 web 文章路由。"
-          />
-          <ModuleHint
-            icon={<Music2 />}
-            title="音乐"
-            body="上传后进入 web 音乐路由并可播放。"
-          />
-          <ModuleHint
-            icon={<Wrench />}
-            title="工具"
-            body="管理前台工具入口、路由和数据来源。"
-          />
-          <ModuleHint
-            icon={<Share2 />}
-            title="分享"
-            body="后续生成公开分享页与素材。"
-          />
+      <section className="rounded-lg border border-line bg-panel p-4 shadow-panel">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">模块入口</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              当前后台已注册 {moduleItems.length} 个模块，点击进入对应管理页。
+            </p>
+          </div>
+          <span className="w-fit rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600">
+            接口 {getModuleCount('endpoints')}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {moduleItems.map(item => (
+            <ModuleHint key={item.to} {...item} />
+          ))}
         </div>
       </section>
     </section>
@@ -847,6 +1024,17 @@ function DeleteConfirmDialog({
   );
 }
 
+function SuccessToast({ message }: { message: string }) {
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-4 z-[80] w-[calc(100%-2rem)] max-w-md -translate-x-1/2">
+      <div className="flex items-center justify-center gap-2 rounded-lg border border-mint/20 bg-panel px-4 py-3 text-sm font-semibold text-mint shadow-panel">
+        <Check className="h-4 w-4" aria-hidden="true" />
+        <span className="truncate">{message}</span>
+      </div>
+    </div>
+  );
+}
+
 function ArticlesAdminPage({
   actionMessage,
   createMessage,
@@ -857,13 +1045,11 @@ function ArticlesAdminPage({
   postExcerptEn,
   postExcerptZh,
   posts,
-  postStatus,
   postTitleEn,
   postTitleZh,
   setPostCategoryId,
   setPostExcerptEn,
   setPostExcerptZh,
-  setPostStatus,
   setPostTitleEn,
   setPostTitleZh,
 }: {
@@ -876,13 +1062,11 @@ function ArticlesAdminPage({
   postExcerptEn: string;
   postExcerptZh: string;
   posts: ApiPost[];
-  postStatus: PostStatus;
   postTitleEn: string;
   postTitleZh: string;
   setPostCategoryId: (value: PostCategoryId) => void;
   setPostExcerptEn: (value: string) => void;
   setPostExcerptZh: (value: string) => void;
-  setPostStatus: (value: PostStatus) => void;
   setPostTitleEn: (value: string) => void;
   setPostTitleZh: (value: string) => void;
 }) {
@@ -894,15 +1078,7 @@ function ArticlesAdminPage({
   const [query, setQuery] = useState('');
   const [selectedPost, setSelectedPost] = useState<ApiPost | null>(null);
   const [showCreatePostForm, setShowCreatePostForm] = useState(false);
-  const [sourceFilter, setSourceFilter] = useState<
-    'all' | 'open-source' | 'personal'
-  >('all');
-  const [statusFilter, setStatusFilter] = useState<PostStatus | 'all'>('all');
-  const openSourceCount = useMemo(
-    () => posts.filter(isOpenSourcePost).length,
-    [posts],
-  );
-  const personalUploadCount = posts.length - openSourceCount;
+  const categoryCount = new Set(posts.map(post => post.categoryId)).size;
   const filteredPosts = useMemo(
     () =>
       posts.filter(post => {
@@ -917,21 +1093,12 @@ function ArticlesAdminPage({
               post.content['en-US'].title,
             ].some(value => value.toLowerCase().includes(normalizedQuery))
           : true;
-        const matchesStatus =
-          statusFilter === 'all' || post.status === statusFilter;
         const matchesCategory =
           categoryFilter === 'all' || post.categoryId === categoryFilter;
-        const matchesSource =
-          sourceFilter === 'all' ||
-          (sourceFilter === 'open-source'
-            ? isOpenSourcePost(post)
-            : !isOpenSourcePost(post));
 
-        return (
-          matchesQuery && matchesStatus && matchesCategory && matchesSource
-        );
+        return matchesQuery && matchesCategory;
       }),
-    [categoryFilter, posts, query, sourceFilter, statusFilter],
+    [categoryFilter, posts, query],
   );
 
   return (
@@ -951,14 +1118,13 @@ function ArticlesAdminPage({
                 筛选、查看详情、编辑和删除文章。
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[28rem]">
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[18rem]">
               <ApiSummaryItem label="文章总数" value={posts.length} />
-              <ApiSummaryItem label="开源数" value={openSourceCount} />
-              <ApiSummaryItem label="个人上传数" value={personalUploadCount} />
+              <ApiSummaryItem label="分类数" value={categoryCount} />
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px_140px_140px_112px]">
+          <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px_112px]">
             <label className="relative min-w-0">
               <span className="sr-only">搜索文章</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -972,18 +1138,6 @@ function ArticlesAdminPage({
             <select
               className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
               onChange={event =>
-                setStatusFilter(event.target.value as PostStatus | 'all')
-              }
-              value={statusFilter}
-            >
-              <option value="all">全部状态</option>
-              <option value="published">已发布</option>
-              <option value="review">审核中</option>
-              <option value="draft">草稿</option>
-            </select>
-            <select
-              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={event =>
                 setCategoryFilter(event.target.value as PostCategoryId | 'all')
               }
               value={categoryFilter}
@@ -993,19 +1147,6 @@ function ArticlesAdminPage({
               <option value="design">设计</option>
               <option value="engineering">工程</option>
               <option value="culture">文化</option>
-            </select>
-            <select
-              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={event =>
-                setSourceFilter(
-                  event.target.value as 'all' | 'open-source' | 'personal',
-                )
-              }
-              value={sourceFilter}
-            >
-              <option value="all">全部来源</option>
-              <option value="open-source">开源</option>
-              <option value="personal">个人上传</option>
             </select>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
@@ -1027,7 +1168,7 @@ function ArticlesAdminPage({
             {filteredPosts.length ? (
               filteredPosts.map(post => (
                 <div
-                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_92px_92px_96px_88px_88px] lg:items-center"
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_92px_88px_88px] lg:items-center"
                   key={post.id}
                 >
                   <div className="min-w-0">
@@ -1040,12 +1181,6 @@ function ArticlesAdminPage({
                   </div>
                   <span className="text-xs text-slate-500">
                     {post.publishedAt}
-                  </span>
-                  <span className="w-fit rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
-                    {getPostStatusLabel(post.status)}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {getPostSourceLabel(post)}
                   </span>
                   <button
                     className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 text-xs font-semibold text-brand transition hover:bg-slate-50"
@@ -1080,7 +1215,7 @@ function ArticlesAdminPage({
           >
             <h2 className="font-semibold">新建文章</h2>
             <p className="mt-1 text-xs text-slate-500">
-              发布状态的文章会进入 web /articles。
+              当前仅支持管理员上传，保存后会进入 web /articles。
             </p>
             <TextField
               label="中文标题"
@@ -1102,7 +1237,7 @@ function ArticlesAdminPage({
               onChange={setPostExcerptEn}
               value={postExcerptEn}
             />
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="mt-4 grid gap-3">
               <label className="block text-sm font-medium">
                 分类
                 <select
@@ -1116,20 +1251,6 @@ function ArticlesAdminPage({
                   <option value="design">设计</option>
                   <option value="engineering">工程</option>
                   <option value="culture">文化</option>
-                </select>
-              </label>
-              <label className="block text-sm font-medium">
-                状态
-                <select
-                  className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                  onChange={event =>
-                    setPostStatus(event.target.value as PostStatus)
-                  }
-                  value={postStatus}
-                >
-                  <option value="published">发布</option>
-                  <option value="review">审核</option>
-                  <option value="draft">草稿</option>
                 </select>
               </label>
             </div>
@@ -1208,7 +1329,6 @@ function ArticleDetailModal({
     String(post.readingMinutes),
   );
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<PostStatus>(post.status);
   const [titleEn, setTitleEn] = useState(post.content['en-US'].title);
   const [titleZh, setTitleZh] = useState(post.content['zh-CN'].title);
   const [bodyEn, setBodyEn] = useState(post.content['en-US'].body.join('\n'));
@@ -1238,15 +1358,15 @@ function ArticleDetailModal({
       cover,
       featured: post.featured,
       readingMinutes: Number(readingMinutes) || post.readingMinutes,
-      status,
+      status: post.status,
     };
 
     try {
       await onUpdate(post.id, body);
-      setMessage('文章详情已保存。');
+      setSaving(false);
+      onClose();
     } catch {
       setMessage('保存失败，请稍后再试。');
-    } finally {
       setSaving(false);
     }
   }
@@ -1320,7 +1440,6 @@ function ArticleDetailModal({
             <div className="rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-500">
               <p>ID：{post.id}</p>
               <p>作者：{post.content['zh-CN'].author}</p>
-              <p>来源：{getPostSourceLabel(post)}</p>
               <p>发布日期：{post.publishedAt}</p>
             </div>
             <CompactTextField
@@ -1347,18 +1466,6 @@ function ArticleDetailModal({
                 <option value="design">设计</option>
                 <option value="engineering">工程</option>
                 <option value="culture">文化</option>
-              </select>
-            </label>
-            <label className="block text-sm font-medium">
-              状态
-              <select
-                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-                onChange={event => setStatus(event.target.value as PostStatus)}
-                value={status}
-              >
-                <option value="published">已发布</option>
-                <option value="review">审核中</option>
-                <option value="draft">草稿</option>
               </select>
             </label>
             {message ? (
@@ -1437,24 +1544,6 @@ function splitBodyLines(value: string) {
     .filter(Boolean);
 
   return lines.length ? lines : [''];
-}
-
-function isOpenSourcePost(post: ApiPost) {
-  return (
-    post.authorId === 'u_system' || post.authorId.startsWith('open-source')
-  );
-}
-
-function getPostSourceLabel(post: ApiPost) {
-  return isOpenSourcePost(post) ? '开源' : '个人上传';
-}
-
-function getPostStatusLabel(status: PostStatus) {
-  return {
-    draft: '草稿',
-    published: '已发布',
-    review: '审核中',
-  }[status];
 }
 
 const adminDocCategories: Array<WorkDocCategory | 'all'> = [
@@ -1861,12 +1950,11 @@ function DocDetailModal({
     setSaving(true);
 
     try {
-      const updated = await onUpdate(doc.id, buildDocFormData(form));
-      setForm(createDocFormFromDoc(updated));
-      setMessage('文档详情已保存。');
+      await onUpdate(doc.id, buildDocFormData(form));
+      setSaving(false);
+      onClose();
     } catch {
       setMessage('保存失败，请稍后再试。');
-    } finally {
       setSaving(false);
     }
   }
@@ -2340,10 +2428,6 @@ function formatAdminTrackLine(track: FavoriteMusic) {
   return track.album ? `${track.artist} · 《${track.album}》` : track.artist;
 }
 
-function getMusicSourceLabel(source: FavoriteMusic['source']) {
-  return source === 'upload' ? '本地上传' : '外部链接';
-}
-
 function UsersAdminPage({
   currentUserId,
   deleteMessage,
@@ -2498,7 +2582,6 @@ function MusicAdminPage({
   musicCover,
   musicFile,
   musicTitle,
-  musicUrl,
   onCreateMusic,
   onDeleteMusic,
   onUpdateMusic,
@@ -2508,7 +2591,6 @@ function MusicAdminPage({
   setMusicCover,
   setMusicFile,
   setMusicTitle,
-  setMusicUrl,
 }: {
   actionMessage: string;
   createMessage: string;
@@ -2520,7 +2602,6 @@ function MusicAdminPage({
   musicCover: string;
   musicFile: File | null;
   musicTitle: string;
-  musicUrl: string;
   onCreateMusic: (event: FormEvent<HTMLFormElement>) => void;
   onDeleteMusic: (track: FavoriteMusic) => Promise<void>;
   onUpdateMusic: (
@@ -2533,7 +2614,6 @@ function MusicAdminPage({
   setMusicCover: (value: string) => void;
   setMusicFile: (value: File | null) => void;
   setMusicTitle: (value: string) => void;
-  setMusicUrl: (value: string) => void;
 }) {
   const [categoryFilter, setCategoryFilter] = useState<MusicCategoryId | 'all'>(
     'all',
@@ -2545,14 +2625,7 @@ function MusicAdminPage({
     null,
   );
   const [showCreateMusicForm, setShowCreateMusicForm] = useState(false);
-  const [sourceFilter, setSourceFilter] = useState<
-    'all' | 'upload' | 'external'
-  >('all');
-  const uploadCount = useMemo(
-    () => music.filter(track => track.source === 'upload').length,
-    [music],
-  );
-  const externalCount = music.length - uploadCount;
+  const categoryCount = new Set(music.map(track => track.categoryId)).size;
   const filteredMusic = useMemo(
     () =>
       music.filter(track => {
@@ -2563,7 +2636,6 @@ function MusicAdminPage({
           track.artist,
           track.album,
           track.platform,
-          track.url,
         ]
           .filter(Boolean)
           .join(' ')
@@ -2573,12 +2645,10 @@ function MusicAdminPage({
           : true;
         const matchesCategory =
           categoryFilter === 'all' || track.categoryId === categoryFilter;
-        const matchesSource =
-          sourceFilter === 'all' || track.source === sourceFilter;
 
-        return matchesQuery && matchesCategory && matchesSource;
+        return matchesQuery && matchesCategory;
       }),
-    [categoryFilter, music, query, sourceFilter],
+    [categoryFilter, music, query],
   );
 
   return (
@@ -2598,14 +2668,13 @@ function MusicAdminPage({
                 筛选、查看详情、编辑和删除音乐。
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[28rem]">
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[18rem]">
               <ApiSummaryItem label="音乐总数" value={music.length} />
-              <ApiSummaryItem label="本地上传" value={uploadCount} />
-              <ApiSummaryItem label="外部链接" value={externalCount} />
+              <ApiSummaryItem label="分类数" value={categoryCount} />
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px_140px_112px]">
+          <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_140px_112px]">
             <label className="relative min-w-0">
               <span className="sr-only">搜索音乐</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -2630,19 +2699,6 @@ function MusicAdminPage({
                 </option>
               ))}
             </select>
-            <select
-              className="h-10 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-              onChange={event =>
-                setSourceFilter(
-                  event.target.value as 'all' | 'upload' | 'external',
-                )
-              }
-              value={sourceFilter}
-            >
-              <option value="all">全部来源</option>
-              <option value="upload">本地上传</option>
-              <option value="external">外部链接</option>
-            </select>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-3 text-sm font-semibold text-white transition hover:bg-brand/90"
               onClick={() => setShowCreateMusicForm(current => !current)}
@@ -2663,7 +2719,7 @@ function MusicAdminPage({
             {filteredMusic.length ? (
               filteredMusic.map(track => (
                 <div
-                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_86px_92px_88px_88px] lg:items-center"
+                  className="grid gap-2 border-b border-line px-3 py-2 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_100px_92px_88px_88px] lg:items-center"
                   key={track.id}
                 >
                   <div className="min-w-0">
@@ -2679,9 +2735,6 @@ function MusicAdminPage({
                       track.categoryId,
                       musicCategories,
                     )}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {getMusicSourceLabel(track.source)}
                   </span>
                   <span className="text-xs text-slate-500">
                     {track.createdAt.slice(0, 10)}
@@ -2724,7 +2777,7 @@ function MusicAdminPage({
               <div>
                 <h2 className="font-semibold">新增音乐</h2>
                 <p className="text-xs text-slate-500">
-                  选择文件或填写外部音频链接。
+                  上传音频文件并维护曲目信息。
                 </p>
               </div>
             </div>
@@ -2772,11 +2825,6 @@ function MusicAdminPage({
               label="封面 URL"
               onChange={setMusicCover}
               value={musicCover}
-            />
-            <TextField
-              label="外部音频 URL"
-              onChange={setMusicUrl}
-              value={musicUrl}
             />
             <label className="mt-4 block text-sm font-medium">
               上传文件
@@ -2865,16 +2913,13 @@ function MusicDetailModal({
 }) {
   const [album, setAlbum] = useState(track.album ?? '');
   const [artist, setArtist] = useState(track.artist);
-  const [audioUrl, setAudioUrl] = useState(track.audioUrl ?? '');
   const [categoryId, setCategoryId] = useState<MusicCategoryId>(
     track.categoryId,
   );
   const [cover, setCover] = useState(track.cover ?? '');
   const [message, setMessage] = useState('');
-  const [platform, setPlatform] = useState(track.platform ?? '');
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState(track.title);
-  const [url, setUrl] = useState(track.url ?? track.audioUrl ?? '');
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -2882,28 +2927,20 @@ function MusicDetailModal({
     setSaving(true);
 
     try {
-      const updated = await onUpdate(track.id, {
+      await onUpdate(track.id, {
         album: album || undefined,
         artist,
-        audioUrl: audioUrl || undefined,
+        audioUrl: track.audioUrl,
         categoryId,
         cover: cover || undefined,
-        platform: platform || undefined,
+        platform: track.platform,
         title,
-        url: url || undefined,
+        url: track.url,
       });
-      setTitle(updated.title);
-      setArtist(updated.artist);
-      setAlbum(updated.album ?? '');
-      setCover(updated.cover ?? '');
-      setAudioUrl(updated.audioUrl ?? '');
-      setPlatform(updated.platform ?? '');
-      setUrl(updated.url ?? updated.audioUrl ?? '');
-      setCategoryId(updated.categoryId);
-      setMessage('音乐详情已保存。');
+      setSaving(false);
+      onClose();
     } catch {
       setMessage('保存失败，请稍后再试。');
-    } finally {
       setSaving(false);
     }
   }
@@ -2951,29 +2988,17 @@ function MusicDetailModal({
                 onChange={setAlbum}
                 value={album}
               />
-              <CompactTextField
-                label="平台"
-                onChange={setPlatform}
-                value={platform}
-              />
             </div>
             <CompactTextField
               label="封面 URL"
               onChange={setCover}
               value={cover}
             />
-            <CompactTextField
-              label="音频 URL"
-              onChange={setAudioUrl}
-              value={audioUrl}
-            />
-            <CompactTextField label="来源 URL" onChange={setUrl} value={url} />
           </section>
 
           <aside className="space-y-3">
             <div className="rounded-lg bg-slate-50 p-3 text-xs leading-6 text-slate-500">
               <p>ID：{track.id}</p>
-              <p>来源：{getMusicSourceLabel(track.source)}</p>
               <p>创建时间：{track.createdAt.slice(0, 10)}</p>
               <p>
                 分类：{getAdminMusicCategoryLabel(track.categoryId, categories)}
@@ -2986,12 +3011,12 @@ function MusicDetailModal({
                 src={resolveMediaUrl(cover)}
               />
             ) : null}
-            {audioUrl ? (
+            {track.audioUrl ? (
               <audio
                 className="w-full"
                 controls
                 preload="none"
-                src={resolveMediaUrl(audioUrl)}
+                src={resolveMediaUrl(track.audioUrl)}
               />
             ) : (
               <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
@@ -3444,19 +3469,26 @@ function ModuleHint({
   body,
   icon,
   title,
+  to,
 }: {
   body: string;
   icon: ReactNode;
   title: string;
+  to: string;
 }) {
   return (
-    <article className="rounded-lg border border-line p-4">
-      <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-brand">
-        {icon}
-      </span>
-      <h3 className="mt-4 font-semibold">{title}</h3>
+    <NavLink
+      className="rounded-lg border border-line p-4 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-panel"
+      to={to}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-brand">
+          {icon}
+        </span>
+      </div>
+      <h3 className="mt-3 font-semibold">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-500">{body}</p>
-    </article>
+    </NavLink>
   );
 }
 

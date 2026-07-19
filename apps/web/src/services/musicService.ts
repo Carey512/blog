@@ -21,35 +21,6 @@ async function request<T>(path: string): Promise<T> {
 }
 
 export const musicService = {
-  createMusic(
-    body: {
-      album?: string;
-      artist: string;
-      audioUrl?: string;
-      categoryId?: MusicCategoryId;
-      cover?: string;
-      platform?: string;
-      title: string;
-      url?: string;
-    },
-    token: string,
-  ) {
-    return fetch(`${apiBaseUrl}/api/music`, {
-      body: JSON.stringify(body),
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
-    }).then((response) => {
-      if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`);
-      }
-
-      return response.json() as Promise<FavoriteMusic>;
-    });
-  },
-
   getMusic(params: { category?: MusicCategoryId | 'all'; query?: string } = {}) {
     const search = new URLSearchParams();
 
@@ -71,10 +42,6 @@ export const musicService = {
 
   resolveAudioUrl(track: FavoriteMusic) {
     return track.audioUrl ? toApiUrl(track.audioUrl) : '';
-  },
-
-  resolveUrl(path: string) {
-    return toApiUrl(path);
   },
 
   uploadMusic(formData: FormData, token: string) {
