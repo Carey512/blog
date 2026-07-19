@@ -6,29 +6,28 @@ import {
   Search,
   Upload,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import type { FavoriteMusic, Locale, MusicCategory, MusicCategoryId } from '@blog/shared';
 import { ModulePageHeader } from '../components/ModulePageHeader';
-import { formatTrackLine, MusicFloatingPlayer } from '../components/MusicFloatingPlayer';
+import { formatTrackLine } from '../components/MusicFloatingPlayer';
 import { UploadDialog } from '../components/UploadDialog';
 import { useAuth } from '../context/auth';
+import { useMusicPlayer } from '../context/musicPlayer';
 import { usePreferences } from '../context/preferences';
 import { messages } from '../i18n';
 import { musicService } from '../services/musicService';
 
 export function MusicPage() {
   const { isAuthenticated, token } = useAuth();
+  const { activeTrack, isPlaying, playTrack } = useMusicPlayer();
   const { locale } = usePreferences();
   const t = messages[locale];
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [activeTrack, setActiveTrack] = useState<FavoriteMusic | null>(null);
   const [album, setAlbum] = useState('');
   const [artist, setArtist] = useState('');
   const [category, setCategory] = useState<MusicCategoryId | 'all'>('all');
   const [cover, setCover] = useState('');
   const [error, setError] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [musicCategories, setMusicCategories] = useState<MusicCategory[]>([]);
@@ -95,22 +94,6 @@ export function MusicPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const audio = audioRef.current;
-
-    if (!audio || !activeTrack || !activeTrack.audioUrl) {
-      audio?.pause();
-      return;
-    }
-
-    if (isPlaying) {
-      void audio.play().catch(() => setIsPlaying(false));
-      return;
-    }
-
-    audio.pause();
-  }, [activeTrack, isPlaying]);
-
   const playableCount = useMemo(
     () => tracks.filter((track) => musicService.isPlayable(track)).length,
     [tracks],
@@ -127,7 +110,7 @@ export function MusicPage() {
     setSubmitting(true);
 
     if (!file) {
-      setMessage('请先选择音频文件。');
+      setMessage("\u8bf7\u5148\u9009\u62e9\u97f3\u9891\u6587\u4ef6\u3002");
       setSubmitting(false);
       return;
     }
@@ -143,7 +126,7 @@ export function MusicPage() {
       const created = await musicService.uploadMusic(formData, token);
 
       setTracks((currentTracks) => [created, ...currentTracks]);
-      setMessage(`已保存音乐：${created.title}`);
+      setMessage(`\u5df2\u4fdd\u5b58\u97f3\u4e50\uff1a${created.title}`);
       setAlbum('');
       setArtist('');
       setCover('');
@@ -151,21 +134,10 @@ export function MusicPage() {
       setTitle('');
       setShowUpload(false);
     } catch {
-      setMessage('保存失败，请确认已登录、接口已部署，并选择音频文件。');
+      setMessage("\u4fdd\u5b58\u5931\u8d25\uff0c\u8bf7\u786e\u8ba4\u5df2\u767b\u5f55\u3001\u63a5\u53e3\u5df2\u90e8\u7f72\uff0c\u5e76\u9009\u62e9\u97f3\u9891\u6587\u4ef6\u3002");
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function playTrack(track: FavoriteMusic) {
-    setActiveTrack(track);
-    setIsPlaying(true);
-  }
-
-  function closePlayer() {
-    audioRef.current?.pause();
-    setActiveTrack(null);
-    setIsPlaying(false);
   }
 
   return (
@@ -254,24 +226,13 @@ export function MusicPage() {
       )}
       </section>
 
-      {activeTrack ? (
-        <MusicFloatingPlayer
-          audioRef={audioRef}
-          isPlaying={isPlaying}
-          onClose={closePlayer}
-          onEnded={() => setIsPlaying(false)}
-          onPause={() => setIsPlaying(false)}
-          onPlay={() => setIsPlaying(true)}
-          track={activeTrack}
-        />
-      ) : null}
 
-      <UploadDialog onClose={() => setShowUpload(false)} open={showUpload} title="上传音乐">
+      <UploadDialog onClose={() => setShowUpload(false)} open={showUpload} title="涓婁紶闊充箰">
         {isAuthenticated ? (
           <form className="grid gap-3" onSubmit={handleUploadMusic}>
             <div className="grid gap-3 sm:grid-cols-2">
-              <MusicModalField label="歌曲标题" onChange={setTitle} required value={title} />
-              <MusicModalField label="歌手" onChange={setArtist} required value={artist} />
+              <MusicModalField label="姝屾洸鏍囬" onChange={setTitle} required value={title} />
+              <MusicModalField label="姝屾墜" onChange={setArtist} required value={artist} />
               <label className="block text-sm font-medium text-foreground">
                 {locale === 'zh-CN' ? '\u5206\u7c7b' : 'Category'}
                 <select
@@ -292,10 +253,10 @@ export function MusicPage() {
                   )}
                 </select>
               </label>
-              <MusicModalField label="专辑" onChange={setAlbum} value={album} />
-              <MusicModalField label="封面 URL" onChange={setCover} value={cover} />
+              <MusicModalField label="涓撹緫" onChange={setAlbum} value={album} />
+              <MusicModalField label="灏侀潰 URL" onChange={setCover} value={cover} />
               <label className="block text-sm font-medium text-foreground">
-                本地音频文件
+                鏈湴闊抽鏂囦欢
                 <input
                   accept="audio/*"
                   className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-foreground"
@@ -305,7 +266,7 @@ export function MusicPage() {
               </label>
             </div>
             <div className="rounded-lg bg-surface-muted p-3 text-sm leading-6 text-muted">
-              请选择音频文件上传，保存后会在音乐列表中播放。
+              璇烽€夋嫨闊抽鏂囦欢涓婁紶锛屼繚瀛樺悗浼氬湪闊充箰鍒楄〃涓挱鏀俱€?
             </div>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
@@ -313,17 +274,19 @@ export function MusicPage() {
               type="submit"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
-              {submitting ? '保存中...' : '保存音乐'}
+              {submitting ? '\u4fdd\u5b58\u4e2d...' : '\u4fdd\u5b58\u97f3\u4e50'}
             </button>
           </form>
         ) : (
           <div className="rounded-lg border border-dashed border-border bg-background p-6 text-center">
-            <p className="text-sm text-muted">上传音乐需要先登录。</p>
+            <p className="text-sm text-muted">
+              {'\u4e0a\u4f20\u97f3\u4e50\u9700\u8981\u5148\u767b\u5f55\u3002'}
+            </p>
             <a
               className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
               href="/login?redirect=/music"
             >
-              去登录
+              {'\u53bb\u767b\u5f55'}
             </a>
           </div>
         )}

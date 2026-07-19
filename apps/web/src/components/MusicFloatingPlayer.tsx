@@ -36,7 +36,11 @@ export function MusicFloatingPlayer({
           style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
         >
           {track.cover ? (
-            <img alt={track.title} className="h-full w-full rounded-full object-cover" src={track.cover} />
+            <img
+              alt={track.title}
+              className="h-full w-full rounded-full object-cover"
+              src={track.cover}
+            />
           ) : (
             <Disc3 className="h-9 w-9 text-primary" aria-hidden="true" />
           )}
@@ -44,9 +48,15 @@ export function MusicFloatingPlayer({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">{t.musicNowPlaying}</p>
-          <h2 className="mt-1 truncate text-base font-semibold">{track.title}</h2>
-          <p className="truncate text-xs text-muted">{formatTrackLine(track)}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            {t.musicNowPlaying}
+          </p>
+          <h2 className="mt-1 truncate text-base font-semibold">
+            {track.title}
+          </h2>
+          <p className="truncate text-xs text-muted">
+            {formatTrackLine(track)}
+          </p>
         </div>
 
         <button
@@ -62,7 +72,7 @@ export function MusicFloatingPlayer({
       {usesEmbedPlayer ? (
         <iframe
           allow="autoplay; encrypted-media"
-          className="mt-3 h-24 w-full rounded-lg border border-border bg-background"
+          className="mt-3 h-[86px] w-full rounded-lg border border-border bg-background"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
           src={embedUrl}
@@ -85,7 +95,10 @@ export function MusicFloatingPlayer({
 }
 
 export function formatTrackLine(track: FavoriteMusic) {
-  const album = track.album?.trim().replace(/^\u300a/, '').replace(/\u300b$/, '');
+  const album = track.album
+    ?.trim()
+    .replace(/^\u300a/, '')
+    .replace(/\u300b$/, '');
   const albumLabel = album ? `\u300a${album}\u300b` : '';
 
   return [track.artist, albumLabel].filter(Boolean).join(' \u00b7 ');

@@ -13,12 +13,10 @@ import {
   Wrench,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FavoriteMusic, Locale, WorkDoc } from '@blog/shared';
-import {
-  formatTrackLine,
-  MusicFloatingPlayer,
-} from '../components/MusicFloatingPlayer';
+import { formatTrackLine } from '../components/MusicFloatingPlayer';
+import { useMusicPlayer } from '../context/musicPlayer';
 import { usePreferences } from '../context/preferences';
 import { usePublishedPosts } from '../hooks/usePublishedPosts';
 import { messages } from '../i18n';
@@ -32,6 +30,7 @@ import { musicService } from '../services/musicService';
 
 export function BlogHomePage() {
   const { locale } = usePreferences();
+  const { activeTrack, isPlaying, playTrack } = useMusicPlayer();
   const t = messages[locale];
   const {
     error: postsError,
@@ -41,9 +40,6 @@ export function BlogHomePage() {
   const [docs, setDocs] = useState<WorkDoc[]>([]);
   const [docsError, setDocsError] = useState('');
   const [docsLoading, setDocsLoading] = useState(true);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [activeTrack, setActiveTrack] = useState<FavoriteMusic | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [musicError, setMusicError] = useState('');
   const [musicLoading, setMusicLoading] = useState(true);
   const [tracks, setTracks] = useState<FavoriteMusic[]>([]);
@@ -97,38 +93,6 @@ export function BlogHomePage() {
       alive = false;
     };
   }, []);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-
-    if (!audio || !activeTrack || !activeTrack.audioUrl) {
-      audio?.pause();
-      return;
-    }
-
-    if (isPlaying) {
-      void audio.play().catch(() => setIsPlaying(false));
-      return;
-    }
-
-    audio.pause();
-  }, [activeTrack, isPlaying]);
-
-  function playTrack(track: FavoriteMusic) {
-    if (activeTrack?.id === track.id && isPlaying) {
-      setIsPlaying(false);
-      return;
-    }
-
-    setActiveTrack(track);
-    setIsPlaying(true);
-  }
-
-  function closePlayer() {
-    audioRef.current?.pause();
-    setActiveTrack(null);
-    setIsPlaying(false);
-  }
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-7 px-3 pb-28 pt-5 sm:px-5 lg:px-6">
@@ -250,17 +214,6 @@ export function BlogHomePage() {
         </div>
       </HomeModule>
 
-      {activeTrack ? (
-        <MusicFloatingPlayer
-          audioRef={audioRef}
-          isPlaying={isPlaying}
-          onClose={closePlayer}
-          onEnded={() => setIsPlaying(false)}
-          onPause={() => setIsPlaying(false)}
-          onPlay={() => setIsPlaying(true)}
-          track={activeTrack}
-        />
-      ) : null}
     </main>
   );
 }
