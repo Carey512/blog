@@ -511,8 +511,8 @@ function cleanOptionalText(value?: string) {
 
 function cleanExternalUrl(value?: string) {
   const rawValue = cleanOptionalText(value);
-  const iframeSrc = rawValue?.match(/<iframe[^>]+src=["']([^"']+)["']/i)?.[1];
-  const nextValue = iframeSrc || rawValue;
+  const embeddedSrc = rawValue?.match(/src=["']([^"']+)["']/i)?.[1];
+  const nextValue = embeddedSrc || rawValue;
 
   if (!nextValue) {
     return undefined;
@@ -524,6 +524,22 @@ function cleanExternalUrl(value?: string) {
   } catch {
     return nextValue.startsWith('/') ? nextValue : undefined;
   }
+}
+
+function isEmbeddedPlayerInput(value?: string) {
+  const nextValue = cleanOptionalText(value)?.toLowerCase();
+
+  if (!nextValue) {
+    return false;
+  }
+
+  return (
+    nextValue.includes('<iframe') ||
+    nextValue.includes('src=') ||
+    nextValue.includes('/outchain/player') ||
+    nextValue.includes('/player?') ||
+    nextValue.includes('iframe')
+  );
 }
 
 function splitDocText(value: string) {
@@ -1417,9 +1433,9 @@ server.post<{ Body: CreateMusicBody }>('/api/music', async (request, reply): Pro
     } as never);
   }
 
-  if (source === 'licensed' && !audioUrl) {
+  if (source === 'licensed' && (!audioUrl || isEmbeddedPlayerInput(request.body.audioUrl))) {
     return reply.code(400).send({
-      message: 'audioUrl is required for licensed music',
+      message: 'a direct audioUrl is required for licensed music',
     } as never);
   }
 
@@ -1543,9 +1559,9 @@ server.put<{ Body: CreateMusicBody; Params: { musicId: string } }>(
       } as never);
     }
 
-    if (source === 'licensed' && !audioUrl) {
+    if (source === 'licensed' && (!audioUrl || isEmbeddedPlayerInput(request.body.audioUrl))) {
       return reply.code(400).send({
-        message: 'audioUrl is required for licensed music',
+        message: 'a direct audioUrl is required for licensed music',
       } as never);
     }
 

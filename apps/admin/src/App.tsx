@@ -2569,6 +2569,18 @@ function getAdminMusicSourceLabel(source: FavoriteMusic['source']) {
   }[source];
 }
 
+function looksLikeEmbedPlayerInput(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  return (
+    normalized.includes('<iframe') ||
+    normalized.includes('src=') ||
+    normalized.includes('/outchain/player') ||
+    normalized.includes('/player?') ||
+    normalized.includes('iframe')
+  );
+}
+
 function formatAdminTrackLine(track: FavoriteMusic) {
   return track.album ? `${track.artist} · 《${track.album}》` : track.artist;
 }
@@ -2823,6 +2835,26 @@ function MusicAdminPage({
     [categoryFilter, music, query],
   );
 
+  function handleCreateAudioUrlChange(value: string) {
+    if (looksLikeEmbedPlayerInput(value)) {
+      setMusicSourceMode('embed');
+      setMusicEmbedUrl(value);
+      setMusicAudioUrl('');
+      return;
+    }
+
+    setMusicAudioUrl(value);
+  }
+
+  function handleCreateSourceUrlChange(value: string) {
+    if (looksLikeEmbedPlayerInput(value)) {
+      setMusicSourceMode('embed');
+      setMusicEmbedUrl(value);
+    }
+
+    setMusicSourceUrl(value);
+  }
+
   return (
     <section className="space-y-4">
       <div
@@ -3048,14 +3080,14 @@ function MusicAdminPage({
             {musicSourceMode === 'licensed' ? (
               <TextField
                 label="授权音频直链"
-                onChange={setMusicAudioUrl}
+                onChange={handleCreateAudioUrlChange}
                 value={musicAudioUrl}
               />
             ) : null}
             {musicSourceMode !== 'upload' ? (
               <TextField
                 label="平台歌曲页链接"
-                onChange={setMusicSourceUrl}
+                onChange={handleCreateSourceUrlChange}
                 value={musicSourceUrl}
               />
             ) : null}
@@ -3194,6 +3226,26 @@ function MusicDetailModal({
     }
   }
 
+  function handleAudioUrlChange(value: string) {
+    if (looksLikeEmbedPlayerInput(value)) {
+      setSource('embed');
+      setEmbedUrl(value);
+      setAudioUrl('');
+      return;
+    }
+
+    setAudioUrl(value);
+  }
+
+  function handleSourceUrlChange(value: string) {
+    if (looksLikeEmbedPlayerInput(value)) {
+      setSource('embed');
+      setEmbedUrl(value);
+    }
+
+    setSourceUrl(value);
+  }
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/45 px-4 py-6">
       <form
@@ -3251,7 +3303,7 @@ function MusicDetailModal({
               />
               <CompactTextField
                 label="平台歌曲页链接"
-                onChange={setSourceUrl}
+                onChange={handleSourceUrlChange}
                 value={sourceUrl}
               />
             </div>
@@ -3271,7 +3323,7 @@ function MusicDetailModal({
             {source === 'licensed' ? (
               <CompactTextField
                 label="授权音频直链"
-                onChange={setAudioUrl}
+                onChange={handleAudioUrlChange}
                 value={audioUrl}
               />
             ) : null}

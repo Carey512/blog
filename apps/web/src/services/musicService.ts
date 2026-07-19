@@ -46,7 +46,7 @@ export const musicService = {
 
   resolveEmbedUrl(track: FavoriteMusic) {
     const embedValue = track.embedUrl?.trim() ?? '';
-    return embedValue.match(/<iframe[^>]+src=["']([^"']+)["']/i)?.[1] ?? embedValue;
+    return embedValue.match(/src=["']([^"']+)["']/i)?.[1] ?? embedValue;
   },
 
   isPlayable(track: FavoriteMusic) {
