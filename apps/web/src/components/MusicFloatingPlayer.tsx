@@ -25,7 +25,7 @@ export function MusicFloatingPlayer({
   const { locale } = usePreferences();
   const t = messages[locale];
   const audioUrl = musicService.resolveAudioUrl(track);
-  const embedUrl = musicService.resolveEmbedUrl(track);
+  const embedUrl = musicService.resolveEmbedUrl(track, { autoplay: isPlaying });
   const usesEmbedPlayer = Boolean(embedUrl && !audioUrl);
 
   return (
@@ -61,10 +61,10 @@ export function MusicFloatingPlayer({
 
       {usesEmbedPlayer ? (
         <iframe
+          allow="autoplay; encrypted-media"
           className="mt-3 h-24 w-full rounded-lg border border-border bg-background"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
           src={embedUrl}
           title={`${track.title} embedded player`}
         />

@@ -3347,10 +3347,10 @@ function MusicDetailModal({
             ) : null}
             {source === 'embed' && embedUrl ? (
               <iframe
+                allow="autoplay; encrypted-media"
                 className="aspect-video w-full rounded-lg border border-line bg-white"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                 src={embedUrl}
                 title={`${title} 播放器预览`}
               />
