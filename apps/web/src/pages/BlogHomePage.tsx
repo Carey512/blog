@@ -4,6 +4,7 @@ import {
   BookOpenText,
   CalendarClock,
   FileText,
+  Globe2,
   Music2,
   Newspaper,
   Pause,
@@ -220,7 +221,22 @@ export function BlogHomePage() {
         to="/tools"
       >
         <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-          <HomeToolCard locale={locale} />
+          <HomeToolCard
+            Icon={CalendarClock}
+            intro={t.timestampToolIntro}
+            locale={locale}
+            title={t.timestampToolTitle}
+            to="/tools/timestamp"
+            tone="primary"
+          />
+          <HomeToolCard
+            Icon={Globe2}
+            intro={t.ipToolIntro}
+            locale={locale}
+            title={t.ipToolTitle}
+            to="/tools/ip-lookup"
+            tone="accent"
+          />
         </div>
       </HomeModule>
 
@@ -457,21 +473,36 @@ function HomeDocCard({ doc, locale }: { doc: WorkDoc; locale: Locale }) {
   );
 }
 
-function HomeToolCard({ locale }: { locale: Locale }) {
-  const t = messages[locale];
+function HomeToolCard({
+  Icon,
+  intro,
+  locale,
+  title,
+  to,
+  tone,
+}: {
+  Icon: typeof CalendarClock;
+  intro: string;
+  locale: Locale;
+  title: string;
+  to: string;
+  tone: 'accent' | 'primary';
+}) {
+  const iconClassName =
+    tone === 'accent' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground';
 
   return (
     <article className="rounded-lg border border-border bg-surface p-3 shadow-line transition hover:-translate-y-0.5 hover:shadow-soft">
-      <Link className="flex min-h-32 flex-col justify-between" to="/tools">
+      <Link className="flex min-h-32 flex-col justify-between" to={to}>
         <div>
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <CalendarClock className="h-4 w-4" aria-hidden="true" />
+          <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${iconClassName}`}>
+            <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
           <h3 className="mt-3 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-foreground">
-            {t.timestampToolTitle}
+            {title}
           </h3>
           <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">
-            {t.timestampToolIntro}
+            {intro}
           </p>
         </div>
         <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">

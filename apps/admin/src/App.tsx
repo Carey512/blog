@@ -1,6 +1,7 @@
 import {
   BookOpenCheck,
   BookOpenText,
+  Clock3,
   Eye,
   Gauge,
   Headphones,
@@ -8,6 +9,7 @@ import {
   LogIn,
   LogOut,
   Megaphone,
+  Globe2,
   Music2,
   Newspaper,
   Plus,
@@ -20,6 +22,7 @@ import {
   Trash2,
   Upload,
   UsersRound,
+  Wrench,
   X,
 } from 'lucide-react';
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
@@ -59,6 +62,7 @@ const modules = [
   { label: '文章管理', path: '/articles', Icon: Newspaper },
   { label: '笔记文档', path: '/docs', Icon: BookOpenText },
   { label: '音乐管理', path: '/music', Icon: Headphones },
+  { label: '工具管理', path: '/tools', Icon: Wrench },
   { label: '用户管理', path: '/users', Icon: UsersRound },
   { label: '接口配置详情', path: '/api-config', Icon: LinkIcon },
   { label: '知识源', path: '/knowledge', Icon: RadioTower },
@@ -696,6 +700,7 @@ function AdminConsole({
               }
               path="/users"
             />
+            <Route element={<ToolsAdminPage />} path="/tools" />
             <Route
               element={<ApiConfigPage endpoints={apiEndpoints} />}
               path="/api-config"
@@ -764,7 +769,7 @@ function DashboardPage({
       </div>
       <section className="rounded-lg border border-line bg-panel p-5 shadow-panel">
         <h2 className="text-lg font-semibold">模块入口</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
           <ModuleHint
             icon={<Newspaper />}
             title="文章"
@@ -774,6 +779,11 @@ function DashboardPage({
             icon={<Music2 />}
             title="音乐"
             body="上传后进入 web 音乐路由并可播放。"
+          />
+          <ModuleHint
+            icon={<Wrench />}
+            title="工具"
+            body="管理前台工具入口、路由和数据来源。"
           />
           <ModuleHint
             icon={<Share2 />}
@@ -3029,6 +3039,141 @@ function MusicDetailModal({
       </form>
     </div>
   );
+}
+
+const adminToolItems = [
+  {
+    api: '无后端接口',
+    backend: '浏览器本地运行',
+    category: '时间工具',
+    description: '支持 Unix 秒、毫秒、日期文本、时区和批量转换。',
+    Icon: Clock3,
+    id: 'timestamp',
+    route: '/tools/timestamp',
+    source: '前端本地计算',
+    status: '已上线',
+    title: '时间戳解析',
+  },
+  {
+    api: 'https://ipinfo.io/{ip}/json',
+    backend: '外部公开 API',
+    category: '网络工具',
+    description: '查询 Location、ASN、Company、Timezone、Coordinates 等 IP 信息。',
+    Icon: Globe2,
+    id: 'ip-lookup',
+    route: '/tools/ip-lookup',
+    source: 'ipinfo.io',
+    status: '已上线',
+    title: 'IP 查询',
+  },
+];
+
+function ToolsAdminPage() {
+  const externalApiCount = adminToolItems.filter(tool =>
+    tool.backend.includes('外部'),
+  ).length;
+  const localToolCount = adminToolItems.length - externalApiCount;
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-lg border border-line bg-panel p-4 shadow-panel">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">工具管理</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              管理前台工具入口、详情路由、数据来源和接口依赖。
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[28rem]">
+            <ApiSummaryItem label="工具总数" value={adminToolItems.length} />
+            <ApiSummaryItem label="本地工具" value={localToolCount} />
+            <ApiSummaryItem label="外部 API" value={externalApiCount} />
+          </div>
+        </div>
+      </div>
+
+      <section className="rounded-lg border border-line bg-panel p-4 shadow-panel">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+              tools
+            </p>
+            <h2 className="mt-1 text-lg font-semibold">已注册工具</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              当前工具仍是前端注册式，后续需要动态配置时再接后端接口。
+            </p>
+          </div>
+          <span className="w-fit rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-600">
+            {adminToolItems.length} 个工具
+          </span>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-lg border border-line">
+          {adminToolItems.map(tool => (
+            <article
+              className="grid gap-2 border-b border-line px-3 py-2.5 last:border-b-0 xl:grid-cols-[minmax(0,1.25fr)_100px_130px_minmax(0,1.1fr)_100px_108px] xl:items-center"
+              key={tool.id}
+            >
+              <div className="flex min-w-0 items-start gap-2.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand">
+                  <tool.Icon className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink">
+                    {tool.title}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {tool.description}
+                  </p>
+                </div>
+              </div>
+              <span className="w-fit rounded-md bg-mint/10 px-2 py-1 text-xs font-semibold text-mint">
+                {tool.category}
+              </span>
+              <div className="text-xs leading-5 text-slate-500">
+                <p className="font-semibold text-ink">{tool.source}</p>
+                <p>{tool.backend}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="break-all font-mono text-xs text-slate-500">
+                  {tool.route}
+                </p>
+                <p className="mt-1 break-all font-mono text-xs text-slate-400">
+                  {tool.api}
+                </p>
+              </div>
+              <span className="w-fit rounded-md bg-brand/10 px-2 py-1 text-xs font-semibold text-brand">
+                {tool.status}
+              </span>
+              <a
+                className="inline-flex h-8 w-fit items-center justify-center gap-1.5 rounded-lg border border-line px-2.5 text-xs font-semibold text-brand transition hover:bg-slate-50"
+                href={getPublicToolUrl(tool.route)}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                打开前台
+              </a>
+            </article>
+          ))}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function getPublicToolUrl(path: string) {
+  const configuredUrl = import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined;
+
+  if (configuredUrl) {
+    return new URL(path, configuredUrl).toString();
+  }
+
+  if (window.location.port === '5174') {
+    return `${window.location.protocol}//${window.location.hostname}:5173${path}`;
+  }
+
+  return `${window.location.origin}${path}`;
 }
 
 const apiAudienceSections: Array<{

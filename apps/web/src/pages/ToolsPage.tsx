@@ -1,15 +1,24 @@
 import {
+  ArrowLeft,
+  ArrowUpRight,
   Calendar,
   Check,
   Clock3,
   Copy,
+  Globe2,
+  Loader2,
+  MapPin,
+  Network,
   Play,
   RefreshCcw,
   Search,
+  Server,
   Square,
   Wrench,
+  type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import type { Locale } from '@blog/shared';
 import { ModulePageHeader } from '../components/ModulePageHeader';
 import { usePreferences } from '../context/preferences';
@@ -17,6 +26,57 @@ import { messages, type LocaleMessages } from '../i18n';
 
 type TimestampUnit = 'seconds' | 'milliseconds';
 type ToolTab = 'single' | 'batch';
+
+type IpInfoResponse = {
+  abuse?: {
+    address?: string;
+    country?: string;
+    email?: string;
+    name?: string;
+    network?: string;
+    phone?: string;
+  };
+  anycast?: boolean;
+  asn?: {
+    asn?: string;
+    domain?: string;
+    name?: string;
+    route?: string;
+    type?: string;
+  };
+  bogon?: boolean;
+  city?: string;
+  company?: {
+    domain?: string;
+    name?: string;
+    type?: string;
+  };
+  country?: string;
+  domains?: {
+    domains?: string[];
+    total?: number;
+  };
+  error?: {
+    message?: string;
+    title?: string;
+  };
+  hostname?: string;
+  ip?: string;
+  loc?: string;
+  org?: string;
+  postal?: string;
+  privacy?: {
+    hosting?: boolean;
+    proxy?: boolean;
+    relay?: boolean;
+    service?: string;
+    tor?: boolean;
+    vpn?: boolean;
+  };
+  readme?: string;
+  region?: string;
+  timezone?: string;
+};
 
 type TimeZoneOption = {
   label: string;
@@ -39,21 +99,158 @@ const timeZoneOptions: TimeZoneOption[] = [
 export function ToolsPage() {
   const { locale } = usePreferences();
   const t = messages[locale];
+  const toolCards = [
+    {
+      Icon: Clock3,
+      intro: t.timestampToolIntro,
+      path: '/tools/timestamp',
+      title: t.timestampToolTitle,
+      tone: 'primary' as const,
+    },
+    {
+      Icon: Globe2,
+      intro: t.ipToolIntro,
+      path: '/tools/ip-lookup',
+      title: t.ipToolTitle,
+      tone: 'accent' as const,
+    },
+  ];
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pb-8 pt-4 sm:px-5 lg:px-6">
       <ModulePageHeader
-        count={1}
+        count={2}
         countLabel={t.toolsCount}
         eyebrow={t.nav.tools}
         intro={t.toolsIntro}
         title={t.toolsTitle}
       />
 
-      <section className="grid grid-cols-1 gap-3">
-        <TimestampToolCard locale={locale} />
+      <section className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        {toolCards.map((tool) => (
+          <ToolListCard
+            Icon={tool.Icon}
+            intro={tool.intro}
+            key={tool.path}
+            locale={locale}
+            path={tool.path}
+            title={tool.title}
+            tone={tool.tone}
+          />
+        ))}
       </section>
     </main>
+  );
+}
+
+export function TimestampToolPage() {
+  const { locale } = usePreferences();
+  const t = messages[locale];
+
+  return (
+    <ToolDetailShell
+      countLabel={t.toolsCount}
+      eyebrow={t.nav.tools}
+      intro={t.timestampToolIntro}
+      title={t.timestampToolTitle}
+    >
+      <TimestampToolCard locale={locale} />
+    </ToolDetailShell>
+  );
+}
+
+export function IpLookupToolPage() {
+  const { locale } = usePreferences();
+  const t = messages[locale];
+
+  return (
+    <ToolDetailShell
+      countLabel={t.toolsCount}
+      eyebrow={t.nav.tools}
+      intro={t.ipToolIntro}
+      title={t.ipToolTitle}
+    >
+      <IpLookupToolCard locale={locale} />
+    </ToolDetailShell>
+  );
+}
+
+function ToolDetailShell({
+  children,
+  countLabel,
+  eyebrow,
+  intro,
+  title,
+}: {
+  children: ReactNode;
+  countLabel: string;
+  eyebrow: string;
+  intro: string;
+  title: string;
+}) {
+  const { locale } = usePreferences();
+  const t = messages[locale];
+
+  return (
+    <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pb-8 pt-4 sm:px-5 lg:px-6">
+      <Link
+        className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-primary transition hover:text-foreground"
+        to="/tools"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        {t.toolsBackToList}
+      </Link>
+      <ModulePageHeader
+        count={1}
+        countLabel={countLabel}
+        eyebrow={eyebrow}
+        intro={intro}
+        title={title}
+      />
+      {children}
+    </main>
+  );
+}
+
+function ToolListCard({
+  Icon,
+  intro,
+  locale,
+  path,
+  title,
+  tone,
+}: {
+  Icon: LucideIcon;
+  intro: string;
+  locale: Locale;
+  path: string;
+  title: string;
+  tone: 'accent' | 'primary';
+}) {
+  const t = messages[locale];
+  const iconClassName =
+    tone === 'accent' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground';
+
+  return (
+    <article className="rounded-lg border border-border bg-surface p-3 shadow-line transition hover:-translate-y-0.5 hover:shadow-soft">
+      <Link className="flex min-h-36 flex-col justify-between" to={path}>
+        <div>
+          <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${iconClassName}`}>
+            <Icon className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <h2 className="mt-3 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-foreground">
+            {title}
+          </h2>
+          <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted">
+            {intro}
+          </p>
+        </div>
+        <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+          {t.toolsOpenAction}
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </div>
+      </Link>
+    </article>
   );
 }
 
@@ -140,7 +337,7 @@ function TimestampToolCard({ locale }: { locale: Locale }) {
   }
 
   return (
-    <article className="overflow-hidden rounded-lg border border-border bg-surface shadow-line">
+    <article id="timestamp" className="overflow-hidden rounded-lg border border-border bg-surface shadow-line">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-muted/40 p-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
@@ -302,6 +499,309 @@ function TimestampToolCard({ locale }: { locale: Locale }) {
   );
 }
 
+function IpLookupToolCard({ locale }: { locale: Locale }) {
+  const t = messages[locale];
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState('');
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<IpInfoResponse | null>(null);
+
+  async function handleLookup(useCurrentIp = false) {
+    setError('');
+    setLoading(true);
+
+    try {
+      const nextResult = await lookupIpInfo(useCurrentIp ? '' : input);
+      setResult(nextResult);
+    } catch {
+      setResult(null);
+      setError(t.ipLookupError);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function copyJson() {
+    if (!result) {
+      return;
+    }
+
+    const value = JSON.stringify(result, null, 2);
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        copyWithTextarea(value);
+      }
+    } catch {
+      copyWithTextarea(value);
+    }
+
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }
+
+  return (
+    <article id="ip-lookup" className="overflow-hidden rounded-lg border border-border bg-surface shadow-line">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-muted/40 p-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
+            <Globe2 className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-tight text-foreground">
+              {t.ipToolTitle}
+            </h2>
+            <p className="mt-1 text-sm leading-5 text-muted">{t.ipToolIntro}</p>
+          </div>
+        </div>
+        <a
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-background px-2.5 text-xs font-semibold text-primary transition hover:text-foreground"
+          href="https://ipinfo.io/"
+          rel="noreferrer"
+          target="_blank"
+        >
+          <Network className="h-3.5 w-3.5" aria-hidden="true" />
+          {t.ipLookupSource}
+        </a>
+      </header>
+
+      <section className="p-3">
+        <form
+          className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_112px_128px]"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleLookup(false);
+          }}
+        >
+          <label className="block text-sm font-medium text-foreground">
+            {t.ipLookupInputLabel}
+            <input
+              className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 font-mono text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={t.ipLookupPlaceholder}
+              value={input}
+            />
+          </label>
+          <button
+            className="mt-6 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-foreground px-3 text-sm font-semibold text-background transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading}
+            type="submit"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Search className="h-4 w-4" aria-hidden="true" />
+            )}
+            {loading ? t.ipLookupLoading : t.ipLookupSearchAction}
+          </button>
+          <button
+            className="mt-6 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-muted transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading}
+            onClick={() => void handleLookup(true)}
+            type="button"
+          >
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            {t.ipLookupCurrentAction}
+          </button>
+        </form>
+
+        {error ? (
+          <p className="mt-3 rounded-lg bg-accent/10 px-3 py-2 text-sm font-medium text-accent">
+            {error}
+          </p>
+        ) : null}
+
+        {result ? (
+          <IpLookupResult
+            copied={copied}
+            locale={locale}
+            onCopyJson={copyJson}
+            result={result}
+            t={t}
+          />
+        ) : (
+          <section className="mt-4 rounded-lg border border-border bg-background p-3">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <Server className="h-4 w-4 text-muted" aria-hidden="true" />
+              {t.ipLookupResultTitle}
+            </h3>
+            <p className="mt-3 rounded-lg bg-surface-muted px-3 py-6 text-center text-sm text-muted">
+              {t.ipLookupEmptyHint}
+            </p>
+          </section>
+        )}
+      </section>
+    </article>
+  );
+}
+
+function IpLookupResult({
+  copied,
+  locale,
+  onCopyJson,
+  result,
+  t,
+}: {
+  copied: boolean;
+  locale: Locale;
+  onCopyJson: () => Promise<void>;
+  result: IpInfoResponse;
+  t: LocaleMessages;
+}) {
+  const asn = getAsnInfo(result);
+  const mapData = parseCoordinates(result.loc);
+  const summaryRows = [
+    { label: t.ipLookupLocation, value: formatIpLocation(result, locale) },
+    { label: t.ipLookupAsn, value: formatAsnLine(asn) },
+    { label: t.ipLookupHostname, value: result.hostname },
+    { label: t.ipLookupRange, value: result.asn?.route ?? getIpRange(result.ip) },
+    { label: t.ipLookupCompany, value: result.company?.name ?? asn.name },
+    { label: t.ipLookupHostedDomains, value: formatHostedDomains(result) },
+    { label: t.ipLookupPrivacy, value: formatPrivacy(result) },
+    { label: t.ipLookupAnycast, value: formatBoolean(result.anycast) },
+    { label: t.ipLookupAsType, value: result.asn?.type ?? result.company?.type ?? getInferredAsType(result) },
+    { label: t.ipLookupAbuseContact, value: getAbuseContact(result) },
+  ];
+  const geolocationRows = [
+    { label: t.ipLookupCity, value: result.city },
+    { label: t.ipLookupState, value: result.region },
+    { label: t.ipLookupCountry, value: formatCountry(result.country, locale) },
+    { label: t.ipLookupPostal, value: result.postal },
+    { label: t.ipLookupLocalTime, value: formatIpLocalTime(result.timezone, locale) },
+    { label: t.ipLookupTimezone, value: result.timezone },
+    { label: t.ipLookupCoordinates, value: formatCoordinates(result.loc) },
+  ];
+
+  return (
+    <section className="mt-4 space-y-3">
+      <div className="rounded-lg border border-border bg-background p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              {t.ipLookupResultTitle}
+            </p>
+            <h3 className="mt-2 break-all font-mono text-3xl font-semibold leading-tight text-foreground">
+              {result.ip ?? '-'}
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-muted">
+              {t.ipLookupIpv6}: {result.ip?.includes(':') ? result.ip : t.ipLookupNotDetected}
+            </p>
+          </div>
+          <span className="inline-flex h-8 items-center rounded-full border border-border bg-surface px-3 text-xs font-semibold text-foreground">
+            {result.asn?.type ?? result.company?.type ?? getInferredAsType(result) ?? '-'}
+          </span>
+        </div>
+      </div>
+
+      <IpInfoTable rows={summaryRows} title={t.ipLookupSummaryTitle} />
+
+      <section className="rounded-lg border border-border bg-background p-3">
+        <h3 className="text-lg font-semibold text-foreground">
+          {t.ipLookupGeolocationTitle}
+        </h3>
+        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
+          <IpInfoRows rows={geolocationRows} />
+          <div className="min-w-0">
+            {mapData ? (
+              <div className="overflow-hidden rounded-lg border border-border">
+                <iframe
+                  className="h-64 w-full"
+                  loading="lazy"
+                  src={createOpenStreetMapEmbedUrl(mapData.lat, mapData.lng)}
+                  title={`${t.ipLookupCoordinates} ${result.loc}`}
+                />
+                <div className="flex items-center justify-between gap-2 bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground">
+                  <span className="font-mono">
+                    {formatCoordinates(result.loc)}
+                  </span>
+                  <a
+                    className="inline-flex items-center gap-1 text-primary transition hover:text-foreground"
+                    href={createOpenStreetMapLink(mapData.lat, mapData.lng)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {t.ipLookupOpenMap}
+                    <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <p className="rounded-lg bg-surface-muted px-3 py-8 text-center text-sm text-muted">
+                -
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-background p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-lg font-semibold text-foreground">
+            {t.ipLookupRaw}
+          </h3>
+          <button
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold text-muted transition hover:text-foreground"
+            onClick={() => void onCopyJson()}
+            type="button"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            {copied ? t.timestampCopied : t.timestampCopy}
+          </button>
+        </div>
+        <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-surface-muted p-3 text-xs leading-5 text-foreground">
+          {JSON.stringify(result, null, 2)}
+        </pre>
+      </section>
+    </section>
+  );
+}
+
+function IpInfoTable({
+  rows,
+  title,
+}: {
+  rows: Array<{ label: string; value?: boolean | number | string }>;
+  title: string;
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-background p-3">
+      <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+      <div className="mt-3 overflow-hidden rounded-lg border border-border">
+        <IpInfoRows rows={rows} />
+      </div>
+    </section>
+  );
+}
+
+function IpInfoRows({
+  rows,
+}: {
+  rows: Array<{ label: string; value?: boolean | number | string }>;
+}) {
+  return (
+    <div className="divide-y divide-border">
+      {rows.map((row) => (
+        <div
+          className="grid gap-1 bg-surface px-3 py-2 odd:bg-surface-muted/45 sm:grid-cols-[180px_minmax(0,1fr)]"
+          key={row.label}
+        >
+          <span className="text-sm font-medium text-muted">{row.label}</span>
+          <span className="break-words font-mono text-sm text-foreground">
+            {formatMaybeValue(row.value)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function UnitSelect({
   onChange,
   t,
@@ -366,6 +866,202 @@ function ResultField({ placeholder, value }: { placeholder: string; value: strin
       value={value}
     />
   );
+}
+
+async function lookupIpInfo(input: string) {
+  const ip = input.trim();
+  const endpoint = ip
+    ? `https://ipinfo.io/${encodeURIComponent(ip)}/json`
+    : 'https://ipinfo.io/json';
+  const response = await fetch(endpoint, {
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+  const data = (await response.json()) as IpInfoResponse;
+
+  if (!response.ok || data.error) {
+    throw new Error(data.error?.message ?? 'IP lookup failed');
+  }
+
+  return data;
+}
+
+function getAsnInfo(result: IpInfoResponse) {
+  const parsedOrg = parseOrgAsn(result.org);
+
+  return {
+    asn: result.asn?.asn ?? parsedOrg.asn,
+    name: result.asn?.name ?? result.company?.name ?? parsedOrg.name,
+  };
+}
+
+function parseOrgAsn(org?: string) {
+  const match = org?.match(/^(AS\d+)\s+(.+)$/i);
+
+  return {
+    asn: match?.[1],
+    name: match?.[2] ?? org,
+  };
+}
+
+function formatAsnLine(asn: { asn?: string; name?: string }) {
+  return [asn.asn, asn.name].filter(Boolean).join(' - ');
+}
+
+function getIpRange(ip?: string) {
+  if (!ip) {
+    return undefined;
+  }
+
+  if (ip.includes(':')) {
+    const segments = ip.split(':').filter(Boolean);
+    return segments.length ? `${segments.slice(0, 4).join(':')}::/64` : undefined;
+  }
+
+  const parts = ip.split('.');
+
+  if (parts.length !== 4) {
+    return undefined;
+  }
+
+  return `${parts[0]}.${parts[1]}.${parts[2]}.0/24`;
+}
+
+function formatHostedDomains(result: IpInfoResponse) {
+  if (typeof result.domains?.total === 'number') {
+    return result.domains.total;
+  }
+
+  return undefined;
+}
+
+function formatPrivacy(result: IpInfoResponse) {
+  if (!result.privacy) {
+    return undefined;
+  }
+
+  return Boolean(
+    result.privacy.vpn ||
+      result.privacy.proxy ||
+      result.privacy.tor ||
+      result.privacy.relay ||
+      result.privacy.hosting ||
+      result.privacy.service,
+  );
+}
+
+function formatBoolean(value?: boolean) {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function getInferredAsType(result: IpInfoResponse) {
+  const value = `${result.asn?.name ?? ''} ${result.company?.name ?? ''} ${result.org ?? ''}`.toLowerCase();
+
+  if (/hosting|cloud|network|digitalocean|amazon|google|microsoft|akamai|akari|data center|datacenter/.test(value)) {
+    return 'Hosting';
+  }
+
+  return undefined;
+}
+
+function getAbuseContact(result: IpInfoResponse) {
+  return result.abuse?.email ?? result.abuse?.phone ?? result.abuse?.name;
+}
+
+function formatIpLocation(result: IpInfoResponse, locale: Locale) {
+  return [
+    result.city,
+    result.region,
+    formatCountry(result.country, locale),
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
+function formatCountry(countryCode: string | undefined, locale: Locale) {
+  if (!countryCode) {
+    return undefined;
+  }
+
+  const regionNames = new Intl.DisplayNames([locale], { type: 'region' });
+  const countryName = regionNames.of(countryCode.toUpperCase()) ?? countryCode;
+
+  return `${countryFlag(countryCode)} ${countryName}`;
+}
+
+function countryFlag(countryCode: string) {
+  const code = countryCode.toUpperCase();
+
+  if (!/^[A-Z]{2}$/.test(code)) {
+    return '';
+  }
+
+  return String.fromCodePoint(
+    ...code.split('').map((letter) => 127397 + letter.charCodeAt(0)),
+  );
+}
+
+function formatIpLocalTime(timeZone: string | undefined, locale: Locale) {
+  if (!timeZone) {
+    return undefined;
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'full',
+    timeStyle: 'short',
+    timeZone,
+  }).format(new Date());
+}
+
+function parseCoordinates(value?: string) {
+  const [latText, lngText] = value?.split(',') ?? [];
+  const lat = Number(latText);
+  const lng = Number(lngText);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return { lat, lng };
+}
+
+function formatCoordinates(value?: string) {
+  const coordinates = parseCoordinates(value);
+
+  if (!coordinates) {
+    return undefined;
+  }
+
+  return `${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)}`;
+}
+
+function createOpenStreetMapEmbedUrl(lat: number, lng: number) {
+  const delta = 0.08;
+  const bbox = [
+    lng - delta,
+    lat - delta,
+    lng + delta,
+    lat + delta,
+  ].join(',');
+
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${encodeURIComponent(`${lat},${lng}`)}`;
+}
+
+function createOpenStreetMapLink(lat: number, lng: number) {
+  return `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=12/${encodeURIComponent(lat)}/${encodeURIComponent(lng)}`;
+}
+
+function formatMaybeValue(value?: boolean | number | string) {
+  if (value === undefined || value === '') {
+    return '-';
+  }
+
+  if (typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return value;
 }
 
 function timestampToDate(input: string, unit: TimestampUnit) {

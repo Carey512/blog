@@ -8,7 +8,11 @@ import { DocsPage } from '../pages/DocsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MusicPage } from '../pages/MusicPage';
 import { PostDetailPage } from '../pages/PostDetailPage';
-import { ToolsPage } from '../pages/ToolsPage';
+import {
+  IpLookupToolPage,
+  TimestampToolPage,
+  ToolsPage,
+} from '../pages/ToolsPage';
 
 export type RegisteredPage = {
   path: string;
@@ -47,6 +51,14 @@ export const registeredPages: RegisteredPage[] = [
     Component: ToolsPage,
     navKey: 'tools',
     showInNav: true,
+  },
+  {
+    path: '/tools/timestamp',
+    Component: TimestampToolPage,
+  },
+  {
+    path: '/tools/ip-lookup',
+    Component: IpLookupToolPage,
   },
   {
     path: '/about',
